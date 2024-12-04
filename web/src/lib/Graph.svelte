@@ -10,8 +10,8 @@
 
     // Funktion för att generera en array med fakade data
     function generateData() {
-        const data = [{timestamp: new Date(2024, 10, 20, 22).getTime(), sensor1:{temperatur: 18},sensor2:{temperatur: 18}}];
-        const startDate = new Date(2024, 10, 20, 22); // Börjar 28 april 2024 kl. 19:00
+        const data = [{timestamp: new Date().getTime() - 3 * 24 * 60 * 60 * 1000, sensor1:{temperatur: 18},sensor2:{temperatur: 18}}];
+        const startDate = new Date(new Date().getTime() - 3 * 24 * 60 * 60 * 1000); 
 
         for (let i = 0; i < 140; i++) {
         const timestamp = new Date(
@@ -25,8 +25,9 @@
             sensor2:{temperatur: temperature2},
         });
         }
-        for (let i = 30; i < 40; i++) {
-          data[i].sensor1.temperatur = NaN;
+        for (let i = 50; i < 80; i++) {
+          
+          if(i%4) data[i].sensor2.temperatur = NaN;
         }
 
         return data;

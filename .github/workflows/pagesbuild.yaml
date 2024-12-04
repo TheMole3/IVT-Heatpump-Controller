@@ -1,0 +1,34 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main  # Trigger on push to the main branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '23'  # Adjust to your Node.js version
+
+    - name: Install dependencies
+      working-directory: ./web
+      run: npm install
+
+    - name: Build the project
+      working-directory: ./web
+      run: npm run build
+
+    - name: Deploy to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        branch: gh-pages
+        folder: ./web/build  # Adjust this if your build output is in a different folder
+        token: ${{ secrets.GITHUB_TOKEN }}  # Automatically provided by GitHub Actions

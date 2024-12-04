@@ -7,6 +7,7 @@
 #include <IRController.h>
 #include <ESP8266mDNS.h>
 #include <Sensor.h>
+#include <espnow.h>
 
 
 WiFiClient espClient;
@@ -64,6 +65,15 @@ void setupWiFiAndConfig() {
     }
     Serial.println("mDNS started");
     MDNS.addService("http", "tcp", 80);
+
+    // Initialize ESP-NOW
+    if (esp_now_init() != 0) {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+
+    esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
+    esp_now_register_recv_cb(&sensor.onReceive);
     
     loadConfig();
     
@@ -80,6 +90,7 @@ void setupWiFiAndConfig() {
         html += "MQTT Password: <input type='password' name='mqttPassword' value='" + String(config.mqttPassword) + "'><br>";
         html += "<input type='submit'></form></html>";
         html += "<p>Connected to MQTT Server? : " + mqttconnected + "</p>";
+        html += "<p>MAC Adress: " + WiFi.macAddress() + "</p>";
         html += "<p>Last received message: </p><p>" + lastmessage + "</p>";
         request->send(200, "text/html", html);
     });
@@ -106,8 +117,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
     if (strcmp(topic, "heatpump/data") == 0) {
         unsigned long currentTime = millis();
-        mqttClient.publish("heatpump/received", String(currentTime).c_str());
-        Serial.println("Got heatpump/data");
         Serial.println(message);
         lastmessage = message;
 
@@ -131,6 +140,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
         params.power = doc["power"];
         params.highPower = doc["highPower"];
         params.tenDegreeMode = doc["tenDegreeMode"];
+
+        mqttClient.publish("heatpump/received", String(doc["id"]).c_str());
+        Serial.println("Got heatpump/data");
         
         // Call function from IrController.h
         ircontroller.sendIR(params);
