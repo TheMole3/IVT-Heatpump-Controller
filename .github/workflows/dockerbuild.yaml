@@ -29,6 +29,9 @@ jobs:
       working-directory: ./web
       run: npm run build
 
+    - name: Create .nojekyll file
+      run: echo > ./web/build/.nojekyll
+
     - name: Deploy to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
       with:
