@@ -29,6 +29,13 @@ jobs:
       working-directory: ./web
       run: npm run build
 
+    - name: Deploy to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        branch: gh-pages
+        folder: ./web/build  # Adjust this if your build output is in a different folder
+        token: ${{ secrets.GITHUB_TOKEN }}  # Automatically provided by GitHub Actions
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
