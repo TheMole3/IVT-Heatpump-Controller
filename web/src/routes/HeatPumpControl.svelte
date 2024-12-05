@@ -15,7 +15,7 @@
 </script>
 
 <div class="mt-10">
-  <Temperature bind:temp={currentSettings.temp} bind:disabled={disabledSettings.temp} {updateSetting}></Temperature>
+  <Temperature bind:temp={currentSettings.temp} bind:disabled={disabledSettings.temp} bind:mode={currentSettings.mode} {updateSetting}></Temperature>
 </div>
 
 <button on:click={() => { updateSetting("power", !currentSettings.power) }} class="btn {currentSettings.power ? 'btn-success' : 'btn-error'} mt-10 w-8/12 rounded">

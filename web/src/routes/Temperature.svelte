@@ -4,6 +4,7 @@
     import { fade, slide } from "svelte/transition";
 
     export let updateSetting;
+    export let mode;
 
     export let temp;
     let numberFirst, numberSecond;
@@ -26,6 +27,7 @@
     </button>
 
     {#if !isNaN(temp)}
+        {#if [0,3].includes(mode)}<span class="absolute font-light text-sm -bottom-8">Relativ temperatur</span>{/if}
         {#key numberFirst}
             <span 
             transition:slide={{ delay: 0, duration: 300, easing: quintOut, axis: 'y' }}

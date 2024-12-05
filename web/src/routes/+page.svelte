@@ -65,8 +65,8 @@
       <h1 class="mt-10">Login failed. Please try again.</h1>
       <button class="btn btn-secondary rounded-sm mt-5" on:click={handleLoginRedirect}>Try Logging In Again</button>
     {:else if userInfo}
-      <button class="flex items-center gap-3" on:click={() => logout()}
-        >Hej! {userInfo.name.split(" ")[0]}, klicka här för att logga ut
+      <button class="flex items-center gap-3 mt-2" on:click={() => logout()}
+        >Hej {userInfo.name.split(" ")[0]}! klicka här för att logga ut
         <Fa class="mt-1" icon={faSignOut}/>
       </button>
       <HeatPumpControl></HeatPumpControl>
