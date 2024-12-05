@@ -1,6 +1,6 @@
 {
   "name": "Skraken Värmepump",
-  "short_name": "Värmepump",
+  "short_name": "Skraken Värmepump",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -8,7 +8,7 @@
   "icons": [
     {
       "src": "/favicon.png",
-      "sizes": "192x192",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ]
