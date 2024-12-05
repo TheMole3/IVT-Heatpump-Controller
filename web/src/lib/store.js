@@ -5,7 +5,12 @@ function loadFromLocalStorage(key, defaultValue) {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem(key);
     if (saved) {
-      return JSON.parse(saved); // Parse JSON if data exists
+      try {
+        return JSON.parse(saved)||undefined; // Parse JSON if data exists
+      } catch {
+        console.error("Invalid JSON, falbacking to undefined value, key: ", key);
+        return undefined
+      }
     }
   }
   return defaultValue; // Return default value if no data exists
@@ -25,9 +30,9 @@ export const refreshToken = writable(loadFromLocalStorage('refreshToken', null))
 // Default settings for the heat pump
 export const settingsDefault = {
   temp: 20,
-  power: false,
-  mode: 0, // Auto
-  fan: 3,
+  power: true,
+  mode: 1, // Auto
+  fan: 1,
   highPower: false,
   tenDegreeMode: false,
   disabledSettings: {

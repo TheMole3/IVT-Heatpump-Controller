@@ -2,7 +2,7 @@
   // Trigger page initialization when the component is mounted
   import { onMount } from "svelte";
   import { fetchUserInfo } from "$lib/utils.js"; // Assuming you have a function getUserInfo to fetch user info based on the token
-  import { getUpdatedToken, logout } from "./AuthManager.js";
+  import { getUpdatedToken, logout, startOidcFlow } from "./AuthManager.js";
   import HeatPumpControl from "./HeatPumpControl.svelte";
   import Fa from 'svelte-fa'
   import { faSignOut } from '@fortawesome/free-solid-svg-icons'
@@ -53,7 +53,7 @@
 
   // Function to handle login redirect if the token is invalid
   function handleLoginRedirect() {
-    window.location.href = "/login"; // Redirect to login page or initiate login flow
+    startOidcFlow();
   }
 </script>
 
@@ -62,10 +62,8 @@
     {#if loading}
       <div class="loading mt-24">Loading...</div>
     {:else if loginError}
-      <div class="error-screen">
-        <h1>Login failed. Please try again.</h1>
-        <button on:click={handleLoginRedirect}>Try Logging In Again</button>
-      </div>
+      <h1 class="mt-10">Login failed. Please try again.</h1>
+      <button class="btn btn-secondary rounded-sm mt-5" on:click={handleLoginRedirect}>Try Logging In Again</button>
     {:else if userInfo}
       <button class="flex items-center gap-3" on:click={() => logout()}
         >Hej! {userInfo.name.split(" ")[0]}, klicka här för att logga ut
