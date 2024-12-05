@@ -13,25 +13,25 @@
 		<title>Skrakens värmepump</title>
 
 		
-		<link href="./_app/immutable/assets/0.95715243.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/0.faf64049.css" rel="stylesheet">
 		<link href="./_app/immutable/assets/4.301ffce6.css" rel="stylesheet">
-		<link rel="modulepreload" href="./_app/immutable/entry/start.c9abfc23.js">
+		<link rel="modulepreload" href="./_app/immutable/entry/start.f1f08e26.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/scheduler.f9c04a13.js">
-		<link rel="modulepreload" href="./_app/immutable/chunks/singletons.a0bcbab5.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/singletons.d4532f96.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/index.58c9df35.js">
-		<link rel="modulepreload" href="./_app/immutable/entry/app.f9e219c3.js">
+		<link rel="modulepreload" href="./_app/immutable/entry/app.ae6c825c.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/index.f73c5084.js">
-		<link rel="modulepreload" href="./_app/immutable/nodes/0.276faca3.js">
-		<link rel="modulepreload" href="./_app/immutable/nodes/4.d226e28b.js">
-		<link rel="modulepreload" href="./_app/immutable/chunks/controller.ba271be5.js">
-		<link rel="modulepreload" href="./_app/immutable/chunks/store.85ef397c.js">
+		<link rel="modulepreload" href="./_app/immutable/nodes/0.dc9f03cc.js">
+		<link rel="modulepreload" href="./_app/immutable/nodes/4.a7b04fb8.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/controller.8335d7ad.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/store.3cb84754.js">
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">  <div class="settings-container svelte-3x3j3r"> <div class="setting svelte-3x3j3r"><label for="temp" class="svelte-3x3j3r" data-svelte-h="svelte-908zf0">Temperature (°C):</label> <input id="temp" type="number"  class="svelte-3x3j3r" value="20"></div>  <div class="setting svelte-3x3j3r"><button  class="svelte-3x3j3r">Power: Off</button></div>  <div class="setting svelte-3x3j3r"><label for="mode" class="svelte-3x3j3r" data-svelte-h="svelte-19eyl94">Mode:</label> <select id="mode"  class="svelte-3x3j3r"><option value="0" data-svelte-h="svelte-1acebhb">Auto</option><option value="1" data-svelte-h="svelte-cx3qrf">Heat</option><option value="2" data-svelte-h="svelte-1n2fmfb">Cool</option><option value="3" data-svelte-h="svelte-1306pk7">Dehumidify</option></select></div>  <div class="setting svelte-3x3j3r"><label for="fan" class="svelte-3x3j3r" data-svelte-h="svelte-y4pr5">Fan Speed:</label> <input id="fan" type="number" min="0" max="5" value="3"  class="svelte-3x3j3r"></div>  <div class="setting svelte-3x3j3r"><label for="highPower" class="svelte-3x3j3r" data-svelte-h="svelte-8910qo">High Power:</label> <input id="highPower" type="checkbox"  class="svelte-3x3j3r"></div>  <div class="setting svelte-3x3j3r"><label for="tenDegreeMode" class="svelte-3x3j3r" data-svelte-h="svelte-sh4ue0">Ten Degree Mode:</label> <input id="tenDegreeMode" type="checkbox"  class="svelte-3x3j3r"></div> </div> 
+		<div style="display: contents">  <div class="settings-container svelte-3x3j3r"> <div class="setting svelte-3x3j3r"><label for="temp" class="svelte-3x3j3r" data-svelte-h="svelte-908zf0">Temperature (°C):</label> <input id="temp" type="number"  class="svelte-3x3j3r" value="20"></div>  <div class="setting svelte-3x3j3r"><button  class="svelte-3x3j3r">Power: On</button></div>  <div class="setting svelte-3x3j3r"><label for="mode" class="svelte-3x3j3r" data-svelte-h="svelte-19eyl94">Mode:</label> <select id="mode"  class="svelte-3x3j3r"><option value="0" data-svelte-h="svelte-1acebhb">Auto</option><option value="1" data-svelte-h="svelte-cx3qrf">Heat</option><option value="2" data-svelte-h="svelte-1n2fmfb">Cool</option><option value="3" data-svelte-h="svelte-1306pk7">Dehumidify</option></select></div>  <div class="setting svelte-3x3j3r"><label for="fan" class="svelte-3x3j3r" data-svelte-h="svelte-y4pr5">Fan Speed:</label> <input id="fan" type="number" min="0" max="5" value="1"  class="svelte-3x3j3r"></div>  <div class="setting svelte-3x3j3r"><label for="highPower" class="svelte-3x3j3r" data-svelte-h="svelte-8910qo">High Power:</label> <input id="highPower" type="checkbox"  class="svelte-3x3j3r"></div>  <div class="setting svelte-3x3j3r"><label for="tenDegreeMode" class="svelte-3x3j3r" data-svelte-h="svelte-sh4ue0">Ten Degree Mode:</label> <input id="tenDegreeMode" type="checkbox"  class="svelte-3x3j3r"></div> </div> 
 			
 			<script>
 				{
-					__sveltekit_17xk5wz = {
+					__sveltekit_rxeb7j = {
 						base: new URL(".", location).pathname.slice(0, -1),
 						env: {}
 					};
@@ -41,8 +41,8 @@
 					const data = [null,null];
 
 					Promise.all([
-						import("./_app/immutable/entry/start.c9abfc23.js"),
-						import("./_app/immutable/entry/app.f9e219c3.js")
+						import("./_app/immutable/entry/start.f1f08e26.js"),
+						import("./_app/immutable/entry/app.ae6c825c.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 4],
