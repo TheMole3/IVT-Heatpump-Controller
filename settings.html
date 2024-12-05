@@ -14,6 +14,7 @@
 
 		
 		<link href="./_app/immutable/assets/0.95715243.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/4.301ffce6.css" rel="stylesheet">
 		<link rel="modulepreload" href="./_app/immutable/entry/start.c9abfc23.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/scheduler.f9c04a13.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/singletons.a0bcbab5.js">
@@ -21,12 +22,12 @@
 		<link rel="modulepreload" href="./_app/immutable/entry/app.f9e219c3.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/index.f73c5084.js">
 		<link rel="modulepreload" href="./_app/immutable/nodes/0.276faca3.js">
-		<link rel="modulepreload" href="./_app/immutable/nodes/3.8147ec03.js">
-		<link rel="modulepreload" href="./_app/immutable/chunks/AuthManager.e3cf90fe.js">
+		<link rel="modulepreload" href="./_app/immutable/nodes/4.d226e28b.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/controller.ba271be5.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/store.85ef397c.js">
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">  <div class="w-screen bg-base-200 select-none flex justify-center"><div class="w-screen md:w-7/12 lg:w-5/12 sm flex flex-col items-center"><div class="loading" data-svelte-h="svelte-1f5y80z">Loading...</div></div></div> 
+		<div style="display: contents">  <div class="settings-container svelte-3x3j3r"> <div class="setting svelte-3x3j3r"><label for="temp" class="svelte-3x3j3r" data-svelte-h="svelte-908zf0">Temperature (°C):</label> <input id="temp" type="number"  class="svelte-3x3j3r" value="20"></div>  <div class="setting svelte-3x3j3r"><button  class="svelte-3x3j3r">Power: Off</button></div>  <div class="setting svelte-3x3j3r"><label for="mode" class="svelte-3x3j3r" data-svelte-h="svelte-19eyl94">Mode:</label> <select id="mode"  class="svelte-3x3j3r"><option value="0" data-svelte-h="svelte-1acebhb">Auto</option><option value="1" data-svelte-h="svelte-cx3qrf">Heat</option><option value="2" data-svelte-h="svelte-1n2fmfb">Cool</option><option value="3" data-svelte-h="svelte-1306pk7">Dehumidify</option></select></div>  <div class="setting svelte-3x3j3r"><label for="fan" class="svelte-3x3j3r" data-svelte-h="svelte-y4pr5">Fan Speed:</label> <input id="fan" type="number" min="0" max="5" value="3"  class="svelte-3x3j3r"></div>  <div class="setting svelte-3x3j3r"><label for="highPower" class="svelte-3x3j3r" data-svelte-h="svelte-8910qo">High Power:</label> <input id="highPower" type="checkbox"  class="svelte-3x3j3r"></div>  <div class="setting svelte-3x3j3r"><label for="tenDegreeMode" class="svelte-3x3j3r" data-svelte-h="svelte-sh4ue0">Ten Degree Mode:</label> <input id="tenDegreeMode" type="checkbox"  class="svelte-3x3j3r"></div> </div> 
 			
 			<script>
 				{
@@ -44,7 +45,7 @@
 						import("./_app/immutable/entry/app.f9e219c3.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
-							node_ids: [0, 3],
+							node_ids: [0, 4],
 							data,
 							form: null,
 							error: null
