@@ -5,21 +5,38 @@
 		<link rel="icon" href="./favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 
+		<link rel="manifest" href="/manifest.json" />
+		<meta name="theme-color" content="#0d6efd" />
+
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 		<script src="https://cdn.jsdelivr.net/npm/moment@^2"></script>
 		<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@^1"></script>
+		<script>
+			if ("serviceWorker" in navigator) {
+				window.addEventListener("load", () => {
+					navigator.serviceWorker.register("/service-worker.js").then(
+						(registration) => {
+							console.log("Service Worker registered with scope:", registration.scope);
+						},
+						(err) => {
+							console.error("Service Worker registration failed:", err);
+						}
+					);
+				});
+			}
+		</script>
 		<title>Skrakens värmepump</title>
 
 		
 		<link href="./_app/immutable/assets/0.faf64049.css" rel="stylesheet">
 		<link href="./_app/immutable/assets/4.301ffce6.css" rel="stylesheet">
-		<link rel="modulepreload" href="./_app/immutable/entry/start.363cbb61.js">
+		<link rel="modulepreload" href="./_app/immutable/entry/start.5f6785c7.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/scheduler.f9c04a13.js">
-		<link rel="modulepreload" href="./_app/immutable/chunks/singletons.053486ca.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/singletons.42a6c052.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/index.58c9df35.js">
-		<link rel="modulepreload" href="./_app/immutable/entry/app.32dfe9eb.js">
+		<link rel="modulepreload" href="./_app/immutable/entry/app.0c20a019.js">
 		<link rel="modulepreload" href="./_app/immutable/chunks/index.f73c5084.js">
 		<link rel="modulepreload" href="./_app/immutable/nodes/0.dc9f03cc.js">
 		<link rel="modulepreload" href="./_app/immutable/nodes/4.a7b04fb8.js">
@@ -31,7 +48,7 @@
 			
 			<script>
 				{
-					__sveltekit_s1ooup = {
+					__sveltekit_e1tlwx = {
 						base: new URL(".", location).pathname.slice(0, -1),
 						env: {}
 					};
@@ -41,8 +58,8 @@
 					const data = [null,null];
 
 					Promise.all([
-						import("./_app/immutable/entry/start.363cbb61.js"),
-						import("./_app/immutable/entry/app.32dfe9eb.js")
+						import("./_app/immutable/entry/start.5f6785c7.js"),
+						import("./_app/immutable/entry/app.0c20a019.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 4],
@@ -51,6 +68,12 @@
 							error: null
 						});
 					});
+
+					if ('serviceWorker' in navigator) {
+						addEventListener('load', function () {
+							navigator.serviceWorker.register('./service-worker.js');
+						});
+					}
 				}
 			</script>
 		</div>
