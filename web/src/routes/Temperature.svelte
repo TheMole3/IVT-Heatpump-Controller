@@ -8,8 +8,8 @@
 
     export let temp;
     let numberFirst, numberSecond;
-    $: numberFirst = temp.toString().charAt(0)
-    $: numberSecond = temp.toString().charAt(1)
+    $: if(temp) numberFirst = temp.toString().charAt(0)
+    $: if(temp) numberSecond = temp.toString().charAt(1)
 
     export let disabled;
 
@@ -26,7 +26,7 @@
         </svg>          
     </button>
 
-    {#if !isNaN(temp)}
+    {#if !isNaN(temp) && !(temp === null)}
         {#if [0,3].includes(mode)}<span class="absolute font-light text-sm -bottom-8">Relativ temperatur</span>{/if}
         {#key numberFirst}
             <span 

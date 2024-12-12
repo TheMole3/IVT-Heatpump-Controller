@@ -67,10 +67,11 @@ async function tryRefreshToken() {
       }
     } catch (err) {
       console.error("Error refreshing access token", err);
-      return { loading: false, loginError: true };
+      console.log(err);
+      return { loading: false, loginError: "Error refreshing access token" };
     }
   }
-  return { loading: false, loginError: true };
+  return { loading: false, loginError: "No refresh token" };
 }
 
 async function handleOidcRedirect() {
@@ -88,14 +89,14 @@ async function handleOidcRedirect() {
         return { loading: false, loginError: false };
       } catch (err) {
         console.error("Error during token exchange", err);
-        return { loading: false, loginError: true };
+        return { loading: false, loginError: "Error during token exchange" };
       }
     } else {
       console.log("Couldn't login");
-      return { loading: false, loginError: true };
+      return { loading: false, loginError: "Missing state or code" };
     }
   }
-  return { loading: false, loginError: true };
+  return { loading: false, loginError: "No window context" };
 }
 
 async function startOidcFlow() {
@@ -110,10 +111,10 @@ async function startOidcFlow() {
       return { loading: true, loginError: false };
     } catch (error) {
       console.log(error);
-      return { loading: false, loginError: true };
+      return { loading: false, loginError: "Error getting OIDC" };
     }
   }
-  return { loading: false, loginError: true };
+  return { loading: false, loginError: "No window context" };
 }
 
 async function ensureValidToken() {

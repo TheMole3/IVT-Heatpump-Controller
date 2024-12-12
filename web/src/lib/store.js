@@ -4,12 +4,18 @@ import { writable } from 'svelte/store';
 function loadFromLocalStorage(key, defaultValue) {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem(key);
-    if (saved) {
+    
+    let hasSameNrOfKeysAsDefault = true;
+    try {
+      hasSameNrOfKeysAsDefault = ((Object.keys(JSON.parse(saved))).sort().join(',') == Object.keys(defaultValue).sort().join(','))
+    } catch {hasSameNrOfKeysAsDefault = true}
+
+    if (saved && hasSameNrOfKeysAsDefault) {
       try {
         return JSON.parse(saved)||undefined; // Parse JSON if data exists
       } catch {
-        console.error("Invalid JSON, falbacking to undefined value, key: ", key);
-        return undefined
+        console.error("Invalid JSON, falbacking to default value, key: ", key);
+        return defaultValue
       }
     }
   }

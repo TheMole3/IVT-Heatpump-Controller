@@ -6,7 +6,7 @@
   import HeatPumpControl from "./HeatPumpControl.svelte";
   import Fa from 'svelte-fa'
   import { faSignOut } from '@fortawesome/free-solid-svg-icons'
-
+  import {initializeMQTT, mqttError} from './MqttManager.js'
 
   let userInfo = null;
   let loading = true; // Manage loading state locally
@@ -27,20 +27,20 @@
       }
 
       if (tokenLoginError) {
-        loginError = true;
+        loginError = tokenLoginError;
         loading = false;
         return; // Handle login error
       }
 
       if (accessToken) {
         userInfo = await fetchUserInfo(accessToken); // Get user info with the valid token
-        console.log(userInfo);
+        await initializeMQTT();
       } else {
         throw new Error("No valid access token.");
       }
     } catch (err) {
       console.error("Error initializing page:", err);
-      loginError = true;
+      loginError = err;
       loading = false;
     } finally {
       loading = false;
@@ -64,6 +64,11 @@
     {:else if loginError}
       <h1 class="mt-10">Login failed. Please try again.</h1>
       <button class="btn btn-secondary rounded-sm mt-5" on:click={handleLoginRedirect}>Try Logging In Again</button>
+      <p class="mt-10 text-red-500">{loginError}</p>
+    {:else if $mqttError}
+      <h1 class="mt-10">MQTT connection failed.</h1>
+      <button class="btn btn-secondary rounded-sm mt-5" on:click={handleLoginRedirect}>Try Logging In Again</button>
+      <p class="mt-10 text-red-500">{$mqttError}</p>
     {:else if userInfo}
       <button class="flex items-center gap-3 mt-2" on:click={() => logout()}
         >Hej {userInfo.name.split(" ")[0]}! Klicka här för att logga ut

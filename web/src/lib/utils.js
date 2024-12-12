@@ -41,7 +41,6 @@ export async function exchangeCodeForToken(code, redirectUri, clientId) {
 export async function refreshAccessToken(refreshToken, clientId) {
   const config = await getOidcConfig();
   const tokenEndpoint = config.token_endpoint;
-  console.log(refreshToken)
 
   const body = new URLSearchParams({
     grant_type: "refresh_token",

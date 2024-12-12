@@ -1,134 +1,101 @@
-import { settings } from "$lib/store.js"; // Assuming this is your writable store
+import { settings } from "$lib/store.js";
 
 let currentSettings = {};
-const unsubscribe = settings.subscribe(($store) => {
-  currentSettings = $store;
+let previousSettings;
+
+const unsubscribe = settings.subscribe((storeValue) => {
+  currentSettings = storeValue;
+  if(!previousSettings) previousSettings = currentSettings;
 });
 
-let previousSettings = currentSettings;
-function validateSettings(newSetting, updatedKey) {
-  let validatedSettings = { ...currentSettings };
-
-  // Update the specific setting
-  validatedSettings[updatedKey] = newSetting;
-
-  const { mode, temp, fan, highPower, tenDegreeMode, power } =
-    validatedSettings;
-
-  // Define disabled states for individual settings
-  const disabledSettings = {
-    temp: false,
-    fan: false,
-    mode: false,
-    highPower: false,
-    tenDegreeMode: false,
-    power: false,
-  };
-
-  // Fan Control Constraints
-  if (
-    validatedSettings.mode === 3 ||
-    validatedSettings.highPower ||
-    validatedSettings.tenDegreeMode
-  ) {
-    validatedSettings.fan = 0;
-    disabledSettings.fan = true; // Disable fan if in Dehumidification or highPower/tenDegreeMode
-  } else {
+/**
+ * Helper: Applies constraints to settings.
+ * @param {object} settings - Current settings object.
+ * @param {object} disabled - Object to track disabled settings.
+ */
+function applyConstraints(settings, disabled) {
+  // Fan Constraints
+  if ([3].includes(settings.mode) || settings.tenDegreeMode) {
+    settings.fan = 0;
+    disabled.fan = true;
   }
 
-  // High Power and Ten Degree Mode Constraints
-  if (validatedSettings.highPower && validatedSettings.tenDegreeMode) {
-    throw new Error(
-      "High Power and Ten Degree Mode cannot be enabled at the same time."
-    );
+  // High Power vs Ten Degree Mode
+  if (settings.highPower && settings.tenDegreeMode) {
+    throw new Error("High Power and Ten Degree Mode cannot be enabled simultaneously.");
   }
 
-  if (validatedSettings.highPower || validatedSettings.tenDegreeMode) {
-    validatedSettings.temp = undefined;
-    disabledSettings.temp = true; // Disable temp control when highPower/tenDegreeMode is enabled
-    disabledSettings.fan = true; // Disable fan control when highPower/tenDegreeMode is enabled
-    disabledSettings.mode = true;
-
-    if (validatedSettings.highPower) disabledSettings.tenDegreeMode = true;
-    else disabledSettings.highPower = true;
+  if (settings.highPower || settings.tenDegreeMode) {
+    Object.assign(disabled, { temp: true, fan: true, mode: true });
+    settings.temp = undefined;
+    disabled[settings.highPower ? "tenDegreeMode" : "highPower"] = true;
   }
 
-  if (
-    (updatedKey == "highPower" && validatedSettings.highPower == false) ||
-    (updatedKey == "tenDegreeMode" && validatedSettings.tenDegreeMode == false)
-  ) {
-    validatedSettings.temp = [1, 2].includes(parseInt(validatedSettings.mode))
-      ? 20
-      : 0;
+  if (!settings.power) {
+    Object.keys(disabled).forEach((key) => (disabled[key] = true));
   }
-
-  // Power Control Constraints
-  if (!power) {
-    disabledSettings.temp = true; // Disable all settings if power is off or modes are locked
-    disabledSettings.fan = true;
-    disabledSettings.mode = true;
-    disabledSettings.highPower = true;
-    disabledSettings.tenDegreeMode = true;
-  }
-
-  if (updatedKey === "mode") {
-    // Update temperature on mode change
-    if (
-      [1, 2].includes(parseInt(newSetting)) &&
-      ![1, 2].includes(parseInt(previousSettings.mode))
-    ) {
-      // If we are changing from 0,3 to 1,2
-      validatedSettings.temp = 20;
-    } else if (
-      [0, 3].includes(parseInt(newSetting)) &&
-      ![0, 3].includes(parseInt(previousSettings.mode))
-    ) {
-      validatedSettings.temp = 0;
-    }
-  }
-
-  // Mode and Temp Range Constraints
-  switch (validatedSettings.mode) {
-    case 0: // Auto
-      validatedSettings.temp = Math.min(
-        Math.max(parseInt(validatedSettings.temp), -2),
-        2
-      ); // Temp range for Heat/Cool
-      break;
-    case 3: // Dehumidification
-      validatedSettings.temp = Math.min(
-        Math.max(parseInt(validatedSettings.temp), -2),
-        2
-      ); // Temp range for Auto/Dehumidification
-      break;
-    case 1: // Heat
-      validatedSettings.temp = Math.min(
-        Math.max(parseInt(validatedSettings.temp), 18),
-        32
-      ); // Temp range for Heat/Cool
-      break;
-    case 2: // Cool
-      validatedSettings.temp = Math.min(
-        Math.max(parseInt(validatedSettings.temp), 18),
-        32
-      ); // Temp range for Heat/Cool
-      break;
-    default:
-      validatedSettings.temp = undefined; // Default temp for unknown modes
-      break;
-  }
-
-  previousSettings = { ...validatedSettings, disabledSettings };
-  return { ...validatedSettings, disabledSettings };
 }
 
-// Function to update a single setting
+/**
+ * Helper: Adjusts temperature based on mode.
+ * @param {object} settings - Current settings object.
+ * @param {string} updatedKey - Key of the updated setting.
+ * @param {any} newValue - New value of the setting.
+ */
+function adjustTemperature(settings, updatedKey, newValue) {
+  if (updatedKey === "mode") {
+    const isSwitchingToHeatOrCool = [1, 2].includes(newValue) && ![1, 2].includes(previousSettings.mode);
+    const isSwitchingAway = [0, 3].includes(newValue) && ![0, 3].includes(previousSettings.mode);
+
+    if (isSwitchingToHeatOrCool) settings.temp = 20;
+    if (isSwitchingAway) settings.temp = 0;
+  }
+
+  const tempRanges = {
+    0: [-2, 2],
+    3: [-2, 2],
+    1: [18, 32],
+    2: [18, 32],
+  };
+
+  if (tempRanges[settings.mode]) {
+    const [min, max] = tempRanges[settings.mode];
+    settings.temp = Math.min(Math.max(settings.temp, min), max);
+  } else {
+    settings.temp = undefined;
+  }
+}
+
+/**
+ * Validates and adjusts settings.
+ * @param {any} newValue - New value for the setting.
+ * @param {string} updatedKey - Key of the setting being updated.
+ * @returns {object} Updated settings object with disabled states.
+ */
+function validateSettings(newValue, updatedKey) {
+  const updatedSettings = { ...currentSettings, [updatedKey]: newValue };
+  const disabledSettings = { temp: false, fan: false, mode: false, highPower: false, tenDegreeMode: false, power: false };
+
+  applyConstraints(updatedSettings, disabledSettings);
+
+  if ((updatedKey === "highPower" && !updatedSettings.highPower) || (updatedKey === "tenDegreeMode" && !updatedSettings.tenDegreeMode)) {
+    updatedSettings.temp = [1, 2].includes(updatedSettings.mode) ? 20 : 0;
+  }
+
+  adjustTemperature(updatedSettings, updatedKey, newValue);
+
+  previousSettings = { ...updatedSettings, disabledSettings };
+  return { ...updatedSettings, disabledSettings };
+}
+
+/**
+ * Updates a specific setting by validating it and applying constraints.
+ * @param {string} settingKey - The key of the setting to update.
+ * @param {any} newValue - The new value of the setting.
+ */
 export const updateSetting = (settingKey, newValue) => {
-  console.log("Update ", settingKey, newValue);
   try {
     const validatedSettings = validateSettings(newValue, settingKey);
-
-    // Update the store with the validated settings
     settings.set(validatedSettings);
   } catch (error) {
     console.error("Invalid setting update:", error.message);
