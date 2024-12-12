@@ -29,7 +29,7 @@ const TOPICS = {
   output: 'heatpump/temperature/concat',
 };
 
-const DATA_FILE_PATH = path.join(__dirname, 'sensor_data.json');
+const DATA_FILE_PATH = path.join(__dirname, 'data/sensor_data.json');
 let sensorData = [];
 
 // Helper function to fetch an access token using client credentials
