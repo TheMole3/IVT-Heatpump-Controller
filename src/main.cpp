@@ -8,8 +8,18 @@
 #include <ESP8266mDNS.h>
 #include <Sensor.h>
 #include <espnow.h>
+#include <esp_oauth.h>
 
+struct Config {
+    char mqttServer[40];
+    int mqttPort;
+    char mqttUsername[40];
+    char mqttPassword[80];
+    char OIDCHost[40];
+    char clientID[40];
+} config;
 
+OAuthClient OAuth(config.OIDCHost, config.clientID, config.mqttUsername, config.mqttPassword);;
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
@@ -19,14 +29,6 @@ IRController ircontroller;
 Sensor sensor;
 
 String lastmessage = "";
-
-
-struct Config {
-    char mqttServer[40];
-    int mqttPort;
-    char mqttUsername[40];
-    char mqttPassword[40];
-} config;
 
 void saveConfig() {
     EEPROM.begin(sizeof(config));
@@ -83,15 +85,19 @@ void setupWiFiAndConfig() {
         if(mqttClient.connected()) {
             mqttconnected = "Yes";
         }
-        String html = "<html><form method='POST' action='/'>";
+
+        String html = "<html><form method='POST' action='/'><style>form {display:grid;row-gap:5px;grid: auto auto/ auto auto auto auto; max-width:42rem; width:100%;} input {grid-column: span 3}</style>";
         html += "MQTT Server: <input name='mqttServer' value='" + String(config.mqttServer) + "'><br>";
         html += "MQTT Port: <input name='mqttPort' value='" + String(config.mqttPort) + "'><br>";
         html += "MQTT Username: <input name='mqttUsername' value='" + String(config.mqttUsername) + "'><br>";
         html += "MQTT Password: <input type='password' name='mqttPassword' value='" + String(config.mqttPassword) + "'><br>";
-        html += "<input type='submit'></form></html>";
+        html += "OIDC Host: <input name='OIDCHost' value='" + String(config.OIDCHost) + "'><br>";
+        html += "Client_id: <input name='clientID' value='" + String(config.clientID) + "'><br>";
+        html += "<input type='submit'></form>";
         html += "<p>Connected to MQTT Server? : " + mqttconnected + "</p>";
         html += "<p>MAC Adress: " + WiFi.macAddress() + "</p>";
         html += "<p>Last received message: </p><p>" + lastmessage + "</p>";
+        html += "</html>";
         request->send(200, "text/html", html);
     });
     
@@ -101,6 +107,8 @@ void setupWiFiAndConfig() {
             config.mqttPort = request->getParam("mqttPort", true)->value().toInt();
             strcpy(config.mqttUsername, request->getParam("mqttUsername", true)->value().c_str());
             strcpy(config.mqttPassword, request->getParam("mqttPassword", true)->value().c_str());
+            strcpy(config.OIDCHost, request->getParam("OIDCHost", true)->value().c_str());
+            strcpy(config.clientID, request->getParam("clientID", true)->value().c_str());
             saveConfig();
         }
         request->send(200, "text/plain", "Configuration saved. Restart device.");
@@ -116,7 +124,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
         message += (char)payload[i];
     }
     if (strcmp(topic, "heatpump/data") == 0) {
-        unsigned long currentTime = millis();
         Serial.println(message);
         lastmessage = message;
 
@@ -151,11 +158,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 // Setup MQTT connection
 void setupMqtt() {
+    String accessToken = OAuth.getAccessToken();
+    String sub = OAuth.getUserInfo(accessToken);
+
     mqttClient.setServer(config.mqttServer, config.mqttPort);
     mqttClient.setCallback(callback);
+    mqttClient.setBufferSize(1024);
     mqttClient.setKeepAlive(60);
+
+    //Serial.println("Trying to connect to mqtt with credentials");
+    //Serial.println(sub.c_str());Serial.println( accessToken.c_str());
     
-    if (mqttClient.connect("ESP8266Client", config.mqttUsername, config.mqttPassword,0,2,0,0,1)) {
+    if (mqttClient.connect("ESP8266Client", sub.c_str(), accessToken.c_str(),0,2,0,0,1)) {
         mqttClient.subscribe("heatpump/data");
         Serial.println("Connected to MQTT broker.");
     } else {
@@ -168,6 +182,7 @@ void setup() {
     Serial.begin(9600);
     setupWiFiAndConfig();
     // Additional setup code here if connected to WiFi
+
 }
 
 void loop() {

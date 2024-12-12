@@ -1,7 +1,6 @@
 #ifndef IRCONTROLLER_H
 #define IRCONTROLLER_H
 
-#include <IRremoteESP8266.h>
 #include <IRSender.h>
 
 const uint16_t kIrLed = 5;  // ESP8266 GPIO pin to use. Recommended: 4 (D2).

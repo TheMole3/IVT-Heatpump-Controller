@@ -107,7 +107,7 @@ async function startOidcFlow() {
       const responseType = "code";
       const state = Math.random().toString(36).substring(7);
       const authUrl = `${config.authorization_endpoint}?response_type=${responseType}&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
-      window.location.href = authUrl;
+      window.location.replace(authUrl);
       return { loading: true, loginError: false };
     } catch (error) {
       console.log(error);

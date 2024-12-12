@@ -54,7 +54,7 @@
         console.error("Error waiting for heatpump/received");
         loading = false;
         error = 'Timeout: No response from heatpump'; // Show error message
-      }, 5000);
+      }, 60 * 1000);
     } catch (err) {
       console.error("Error whilst sending to heatpump", err);
       loading = false;
