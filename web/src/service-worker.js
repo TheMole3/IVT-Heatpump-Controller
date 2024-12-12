@@ -1,33 +1,14 @@
-const CACHE_NAME = "app-cache-v1";
-const urlsToCache = ["/"];
-
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache);
-    })
-  );
+  // Skip waiting, so the new service worker activates immediately after installation.
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
-  );
+  // Always fetch from the network, never use the cache.
+  event.respondWith(fetch(event.request));
 });
 
 self.addEventListener("activate", (event) => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames.map((cacheName) => {
-          if (!cacheWhitelist.includes(cacheName)) {
-            return caches.delete(cacheName);
-          }
-        })
-      )
-    )
-  );
+  // Skip clearing caches since we're not using any.
+  event.waitUntil(self.clients.claim());
 });
