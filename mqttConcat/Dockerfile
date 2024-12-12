@@ -19,4 +19,4 @@ ENV OIDCPASSWORD=your-password
 ENV OIDCUSERNAME=your-username
 
 # Command to start the application
-CMD ["node", "app.js"]
+CMD ["node", "main.js"]
