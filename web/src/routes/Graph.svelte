@@ -113,7 +113,7 @@
       },
       scales: {
         y: {
-          suggestedMin: 0,
+          suggestedMin: 5,
           suggestedMax: 20,
         },
         x: {
@@ -174,7 +174,7 @@
   });
 </script>
 
-<canvas bind:this={canvas}></canvas>
+<canvas class="w-full" bind:this={canvas}></canvas>
 
 <style>
   canvas {

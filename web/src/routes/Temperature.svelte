@@ -8,8 +8,8 @@
 
     export let temp;
     let numberFirst, numberSecond;
-    $: if(temp) numberFirst = temp.toString().charAt(0)
-    $: if(temp) numberSecond = temp.toString().charAt(1)
+    $: if(temp !== null) numberFirst = temp.toString().charAt(0)
+    $: if(temp !== null) numberSecond = temp.toString().charAt(1)
 
     export let disabled;
 

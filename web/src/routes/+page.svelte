@@ -76,7 +76,7 @@
         <Fa class="mt-1" icon={faSignOut}/>
       </button>
       <HeatPumpControl></HeatPumpControl>
-      <div class="h-96">
+      <div class="h-96 w-8/12">
         <Graph></Graph>
       </div>
     {/if}
