@@ -27,6 +27,7 @@ export async function initializeMQTT() {
   client.on('connect', () => {
     client.subscribe("heatpump/received");
     client.subscribe("heatpump/temperature/concat");
+    mqttError.set("");
   })
 
   let retrivedFirst = false;
@@ -39,7 +40,23 @@ export async function initializeMQTT() {
     }
   })
 
-  client.on('error', (err) => {
+  client.on('error', async (err) => {
+    if(err.code == 4) {
+      try {
+        console.error("")
+        let token = (await getUpdatedToken()).accessToken;
+        let userinfo = await fetchUserInfo(token);
+        client.connect("wss://mqtt.melo.se:2096/mqtt", {
+          username: userinfo.sub,
+          password: token,
+        }); // create a client
+      } catch (err) {
+        console.log("catch!")
+        mqttError.set(err.toString())
+        console.error(err);
+      }
+    }
+
     mqttError.set(err.toString())
     console.error(err);
   })
