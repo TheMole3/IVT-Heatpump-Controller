@@ -134,7 +134,7 @@ async function start() {
       const token = await fetchAccessToken();
       const decodedToken = jwtDecode.jwtDecode(token);
 
-      const client = mqtt.connect(MQTT_CONFIG.brokerUrl, {
+      client.connect(MQTT_CONFIG.brokerUrl, {
         clientId: MQTT_CONFIG.clientId,
         username: decodedToken.sub, // Can be left empty if not required
         password: token,
