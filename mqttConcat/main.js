@@ -126,8 +126,16 @@ async function start() {
       }
     });
 
-    client.on('error', (err) => {
+    client.on('error', async (err) => {
       console.error('MQTT connection error:', err);
+      const token = await fetchAccessToken();
+      const decodedToken = jwtDecode.jwtDecode(token);
+
+      client.connect(MQTT_CONFIG.brokerUrl, {
+        clientId: MQTT_CONFIG.clientId,
+        username: decodedToken.sub, // Can be left empty if not required
+        password: token,
+      });
     });
 
     client.on('disconnect', async () => {
