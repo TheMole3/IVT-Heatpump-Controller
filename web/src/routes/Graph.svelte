@@ -126,7 +126,7 @@
             },
           },
           min: new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString(),
-          max: new Date().toISOString(),
+          max: new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
         },
       },
     };
@@ -161,7 +161,7 @@
       };
       chart.data = data;
 
-      chart.scales.x.max = new Date().toISOString();
+      chart.scales.x.max = new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
       chart.scales.x.min = new Date(
         now.getTime() - 72 * 60 * 60 * 1000
       ).toISOString();
