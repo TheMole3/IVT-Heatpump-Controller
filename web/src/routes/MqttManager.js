@@ -7,6 +7,7 @@ import { writable } from "svelte/store";
 let client;
 
 export let mqttError = writable(false);
+export let retainedTemperature = writable("");
 
 export async function initializeMQTT() {
   let token = (await getUpdatedToken()).accessToken;
@@ -28,8 +29,14 @@ export async function initializeMQTT() {
     client.subscribe("heatpump/temperature/concat");
   })
 
-  client.on('message', () => {
-
+  let retrivedFirst = false;
+  client.on('message', (receivedTopic, message) => {
+    // Get retained temp
+    if(receivedTopic == "heatpump/temperature/concat" && !retrivedFirst) {
+      console.log(new TextDecoder().decode(message))
+      retainedTemperature.set(new TextDecoder().decode(message));
+      retrivedFirst = true;
+    }
   })
 
   client.on('error', (err) => {
@@ -142,6 +149,29 @@ export function onceWithTimeout(topic, timeout) {
     client.subscribe(topic, (err) => {
       if (err) {
         clearTimeout(timeoutId);
+        client.removeListener("message", onMessage);
+        reject(err);
+      }
+    });
+  });
+}
+
+export function once(topic) {
+  return new Promise((resolve, reject) => {
+    if (!client || !client.connected) {
+      return reject(new Error("MQTT client is not connected"));
+    }
+
+    const onMessage = (receivedTopic, message) => {
+      if (receivedTopic === topic) {
+        client.removeListener("message", onMessage);
+        resolve(message.toString());
+      }
+    };
+
+    client.on("message", onMessage);
+    client.subscribe(topic, (err) => {
+      if (err) {
         client.removeListener("message", onMessage);
         reject(err);
       }

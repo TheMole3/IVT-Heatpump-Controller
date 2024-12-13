@@ -7,6 +7,7 @@
   import Fa from 'svelte-fa'
   import { faSignOut } from '@fortawesome/free-solid-svg-icons'
   import {initializeMQTT, mqttError} from './MqttManager.js'
+  import Graph from './Graph.svelte'
 
   let userInfo = null;
   let loading = true; // Manage loading state locally
@@ -75,6 +76,9 @@
         <Fa class="mt-1" icon={faSignOut}/>
       </button>
       <HeatPumpControl></HeatPumpControl>
+      <div class="h-96">
+        <Graph></Graph>
+      </div>
     {/if}
   </div>
 </div>
