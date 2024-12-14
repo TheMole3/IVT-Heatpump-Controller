@@ -106,9 +106,10 @@
       elements: {
         line: {
           tension: 0.2,
+          borderWidth: 2
         },
         point: {
-          radius: 1,
+          radius: 0.1,
         },
       },
       scales: {
