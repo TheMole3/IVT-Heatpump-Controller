@@ -86,6 +86,8 @@ async function handleOidcRedirect() {
         accessToken.set(tokenData.access_token);
         refreshToken.set(tokenData.refresh_token);
         console.log("Token exchange successful");
+        let url= document.location.href;
+        window.history.replaceState({}, "", url.split("?")[0]);
         return { loading: false, loginError: false };
       } catch (err) {
         console.error("Error during token exchange", err);

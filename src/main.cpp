@@ -10,16 +10,18 @@
 #include <espnow.h>
 #include <esp_oauth.h>
 
-struct Config {
+struct Config
+{
     char mqttServer[40];
     int mqttPort;
     char mqttUsername[40];
     char mqttPassword[80];
     char OIDCHost[40];
-    char clientID[40];
+    char clientID[50];
+    int temperatureInterval;
 } config;
 
-OAuthClient OAuth(config.OIDCHost, config.clientID, config.mqttUsername, config.mqttPassword);;
+OAuthClient OAuth(config.OIDCHost, config.clientID, config.mqttUsername, config.mqttPassword);
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
@@ -30,27 +32,33 @@ Sensor sensor;
 
 String lastmessage = "";
 
-void saveConfig() {
+void saveConfig()
+{
     EEPROM.begin(sizeof(config));
     EEPROM.put(0, config);
     EEPROM.commit();
 }
 
-void loadConfig() {
+void loadConfig()
+{
     EEPROM.begin(sizeof(config));
     EEPROM.get(0, config);
     EEPROM.end();
 }
 
 // Set up WiFi and configuration page
-void setupWiFiAndConfig() {
+void setupWiFiAndConfig()
+{
     String newHostname = "heatpump";
     WiFi.hostname(newHostname.c_str());
 
+    loadConfig();
+
     Serial.println("Connecting to WiFi...");
-    
+
     // Attempt to connect to WiFi; block further execution if connection fails
-    if (!wifiManager.autoConnect("HeatpumpController")) {
+    if (!wifiManager.autoConnect("HeatpumpController"))
+    {
         Serial.println("Failed to connect to WiFi, restarting...");
         delay(60000);
         ESP.restart();
@@ -60,27 +68,28 @@ void setupWiFiAndConfig() {
     Serial.print("Connected! IP Address: ");
     Serial.println(WiFi.localIP());
 
-        // Start mDNS at esp8266.local address
-    if (!MDNS.begin("heatpump")) 
-    {             
+    // Start mDNS at esp8266.local address
+    if (!MDNS.begin("heatpump"))
+    {
         Serial.println("Error starting mDNS");
     }
     Serial.println("mDNS started");
     MDNS.addService("http", "tcp", 80);
 
     // Initialize ESP-NOW
-    if (esp_now_init() != 0) {
+    if (esp_now_init() != 0)
+    {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
 
     esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
     esp_now_register_recv_cb(&sensor.onReceive);
-    
-    loadConfig();
-    
+
+
     // Setup configuration server page
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
         String mqttconnected = "No";
         if(mqttClient.connected()) {
             mqttconnected = "Yes";
@@ -93,15 +102,16 @@ void setupWiFiAndConfig() {
         html += "MQTT Password: <input type='password' name='mqttPassword' value='" + String(config.mqttPassword) + "'><br>";
         html += "OIDC Host: <input name='OIDCHost' value='" + String(config.OIDCHost) + "'><br>";
         html += "Client_id: <input name='clientID' value='" + String(config.clientID) + "'><br>";
+        html += "Temperature collection interval (m): <input name='temperatureInterval' value='" + String(config.temperatureInterval) + "'><br>";
         html += "<input type='submit'></form>";
         html += "<p>Connected to MQTT Server? : " + mqttconnected + "</p>";
         html += "<p>MAC Adress: " + WiFi.macAddress() + "</p>";
         html += "<p>Last received message: </p><p>" + lastmessage + "</p>";
         html += "</html>";
-        request->send(200, "text/html", html);
-    });
-    
-    server.on("/", HTTP_POST, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", html); });
+
+    server.on("/", HTTP_POST, [](AsyncWebServerRequest *request)
+              {
         if (request->hasParam("mqttServer", true)) {
             strcpy(config.mqttServer, request->getParam("mqttServer", true)->value().c_str());
             config.mqttPort = request->getParam("mqttPort", true)->value().toInt();
@@ -109,21 +119,24 @@ void setupWiFiAndConfig() {
             strcpy(config.mqttPassword, request->getParam("mqttPassword", true)->value().c_str());
             strcpy(config.OIDCHost, request->getParam("OIDCHost", true)->value().c_str());
             strcpy(config.clientID, request->getParam("clientID", true)->value().c_str());
+            config.temperatureInterval = request->getParam("temperatureInterval", true)->value().toInt();
             saveConfig();
         }
-        request->send(200, "text/plain", "Configuration saved. Restart device.");
-    });
-    
+        request->send(200, "text/plain", "Configuration saved. Restart device."); });
+
     server.begin();
 }
 
 // MQTT callback function
-void callback(char* topic, byte* payload, unsigned int length) {
+void callback(char *topic, byte *payload, unsigned int length)
+{
     String message;
-    for (unsigned int i = 0; i < length; i++) {
+    for (unsigned int i = 0; i < length; i++)
+    {
         message += (char)payload[i];
     }
-    if (strcmp(topic, "heatpump/data") == 0) {
+    if (strcmp(topic, "heatpump/data") == 0)
+    {
         Serial.println(message);
         lastmessage = message;
 
@@ -134,7 +147,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
         StaticJsonDocument<200> doc;
         DeserializationError error = deserializeJson(doc, message);
 
-        if (error) {
+        if (error)
+        {
             Serial.print(F("deserializeJson() failed: "));
             Serial.println(error.f_str());
             return;
@@ -150,46 +164,51 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
         mqttClient.publish("heatpump/received", String(doc["id"]).c_str());
         Serial.println("Got heatpump/data");
-        
+
         // Call function from IrController.h
         ircontroller.sendIR(params);
     }
 }
 
 // Setup MQTT connection
-void setupMqtt() {
+void setupMqtt()
+{
     String accessToken = OAuth.getAccessToken();
     String sub = OAuth.getUserInfo(accessToken);
 
     mqttClient.setServer(config.mqttServer, config.mqttPort);
     mqttClient.setCallback(callback);
-    mqttClient.setBufferSize(1024);
+    mqttClient.setBufferSize(1536);
     mqttClient.setKeepAlive(60);
 
-    //Serial.println("Trying to connect to mqtt with credentials");
-    //Serial.println(sub.c_str());Serial.println( accessToken.c_str());
-    
-    if (mqttClient.connect("ESP8266Client", sub.c_str(), accessToken.c_str(),0,2,0,0,1)) {
+    // Serial.println("Trying to connect to mqtt with credentials");
+    // Serial.println(sub.c_str());Serial.println( accessToken.c_str());
+
+    if (mqttClient.connect("ESP8266Client", sub.c_str(), accessToken.c_str(), 0, 2, 0, 0, 1))
+    {
         mqttClient.subscribe("heatpump/data");
         Serial.println("Connected to MQTT broker.");
-    } else {
+    }
+    else
+    {
         Serial.println("Failed to connect to MQTT broker.");
     }
 }
 
-
-void setup() {
+void setup()
+{
     Serial.begin(9600);
     setupWiFiAndConfig();
     // Additional setup code here if connected to WiFi
-
 }
 
-void loop() {
-    if (!mqttClient.connected()) {
+void loop()
+{
+    if (!mqttClient.connected())
+    {
         setupMqtt();
         delay(10000);
     }
     mqttClient.loop();
-    sensor.readProcessSensorData(mqttClient);
+    sensor.readProcessSensorData(mqttClient, config.temperatureInterval * 60 * 1000);
 }

@@ -11,7 +11,7 @@ class Sensor {
     private:
     AM2302::AM2302_Sensor am2302{SENSOR_PIN};
 
-    const unsigned long updateInterval = 2 * 60000; // update very 30 minutes
+    unsigned long updateInterval = 10 * 60000; // update every 10 minutes as default
     unsigned long lastUpdateTime = updateInterval; // update very 30 minutes
     float temperature;
 
@@ -25,7 +25,7 @@ class Sensor {
     } UntilNextUpdate;
 
     public:
-    void readProcessSensorData(PubSubClient &mqttClient);
+    void readProcessSensorData(PubSubClient &mqttClient,  unsigned long updateInterval) ;
     static void onReceive(uint8_t *macAddr, uint8_t *incomingData, uint8_t len);
 };
 
