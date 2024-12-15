@@ -59,6 +59,7 @@
     await waitUntilRetainedTemperature();
 
     let indata = JSON.parse($retainedTemperature);
+    indata = indata.sort((a, b) => a.timestamp - b.timestamp);
     const now = new Date();
     const data = {
       datasets: [
