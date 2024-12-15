@@ -3,7 +3,7 @@
   import Chart, { elements } from "chart.js/auto";
   import "moment";
   import "chartjs-adapter-moment";
-  import { isConnected, retainedTemperature, subscribe } from "./MqttManager";
+  import { isClientConnected, retainedTemperature, subscribe } from "./MqttManager";
 
   let chart;
   let canvas;
@@ -36,7 +36,7 @@
   const waitUntilConnected = (checkInterval = 100) => {
     return new Promise((resolve) => {
       let interval = setInterval(() => {
-        if (!isConnected()) return;
+        if (!isClientConnected()) return;
         clearInterval(interval);
         resolve();
       }, checkInterval);
@@ -137,7 +137,6 @@
       data,
       options,
     });
-    console.log(chart);
 
     subscribe("heatpump/temperature/concat", (indata) => {
       indata = JSON.parse(indata);

@@ -1,88 +1,168 @@
-
+// Import necessary dependencies
 import { getUpdatedToken } from "./AuthManager";
 import { fetchUserInfo } from "$lib/utils";
 import mqtt from 'mqtt';
 import { writable } from "svelte/store";
 
+// Define MQTT configuration
+const mqttURL = "wss://mqtt.melo.se:2096/mqtt";
+
+// Writable stores for errors and temperature
+export const mqttError = writable(false);
+export const retainedTemperature = writable("");
+
+// MQTT client reference
 let client;
 
-export let mqttError = writable(false);
-export let retainedTemperature = writable("");
-
+// Initialize the MQTT client
 export async function initializeMQTT() {
-  let token = (await getUpdatedToken()).accessToken;
-  let userinfo = await fetchUserInfo(token);
+  if (isClientConnected()) {
+    console.info("MQTT client is already initialized and connected.");
+    return;
+  }
 
   try {
-    client = mqtt.connect("wss://mqtt.melo.se:2096/mqtt", {
-      username: userinfo.sub,
-      password: token,
-    }); // create a client
+    const token = await fetchToken();
+    const userinfo = await fetchUserDetails(token);
+
+    client = createMQTTClient(userinfo.sub, token);
+    setupClientHandlers(client);
   } catch (err) {
-    console.log("catch!")
-    mqttError.set(err.toString())
-    console.error(err);
+    handleInitializationError(err);
   }
-
-  client.on('connect', () => {
-    client.subscribe("heatpump/received");
-    client.subscribe("heatpump/temperature/concat");
-    mqttError.set("");
-  })
-
-  let retrivedFirst = false;
-  client.on('message', (receivedTopic, message) => {
-    // Get retained temp
-    if(receivedTopic == "heatpump/temperature/concat" && !retrivedFirst) {
-      console.log(new TextDecoder().decode(message))
-      retainedTemperature.set(new TextDecoder().decode(message));
-      retrivedFirst = true;
-    }
-  })
-
-  client.on('error', async (err) => {
-    if(err.code == 4) {
-      window.location.reload();
-    }
-
-    mqttError.set(err.toString())
-    console.error(err);
-  })
-  
 }
 
-// Store active listeners per topic
-const topicListeners = new Map();
+// Helper function to fetch token
+async function fetchToken() {
+  const { accessToken } = await getUpdatedToken();
+  return accessToken;
+}
 
-// Publish messages to a specific topic
+// Helper function to fetch user details
+async function fetchUserDetails(token) {
+  return await fetchUserInfo(token);
+}
+
+// Create and configure the MQTT client
+function createMQTTClient(username, password) {
+  return mqtt.connect(mqttURL, {
+    username,
+    password,
+    reconnectPeriod: 10000
+  });
+}
+
+// Setup event handlers for the MQTT client
+function setupClientHandlers(clientInstance) {
+  clientInstance.on('connect', onConnect);
+  clientInstance.on('message', handleIncomingMessage);
+  clientInstance.on('error', handleClientError);
+  clientInstance.on('close', () => console.info("MQTT session closed"));
+  clientInstance.on('disconnect', () => console.warn("MQTT session disconnected"));
+  clientInstance.on('reconnect', () => console.info("Reconnecting MQTT client"));
+  clientInstance.on('offline', () => handleClose());
+}
+
+// Handle successful connection
+function onConnect() {
+  console.info("Connected to MQTT broker.");
+  mqttError.set("");
+
+  subscribeToTopics(["heatpump/received", "heatpump/temperature/concat"]);
+}
+
+// Subscribe to multiple topics
+function subscribeToTopics(topics) {
+  topics.forEach((topic) => {
+    client.subscribe(topic, handleSubscriptionError);
+  });
+}
+
+// Handle subscription errors
+function handleSubscriptionError(err) {
+  if (err) {
+    console.error("Subscription error:", err);
+  }
+}
+
+// Handle incoming messages
+function handleIncomingMessage(receivedTopic, message) {
+  console.debug(`Message received on topic ${receivedTopic}:`, message.toString());
+
+  if (receivedTopic === "heatpump/temperature/concat") {
+    retainedTemperature.set(message.toString());
+  }
+}
+
+// Handle client errors
+function handleClientError(err) {
+  console.error("MQTT error:", err);
+  mqttError.set(err.toString());
+}
+
+// Handle reconnect and fetch new credentials
+async function handleClose() {
+  try {
+    console.info("MQTT connection closed, reconnecting: fetching new credentials...");
+
+    // Temporarily stop the client to prevent immediate reconnect attempts
+    if (client.connected) {
+      client.end(true, () => console.info("Temporarily stopped MQTT client for credential refresh."));
+    }
+
+    const token = await fetchToken();
+    const userinfo = await fetchUserDetails(token);
+
+    // Update client options with new credentials
+    client.options.username = userinfo.sub;
+    client.options.password = token;
+
+    console.info("Updated MQTT client credentials for reconnection.");
+
+    // Reconnect the client after updating credentials
+    client.reconnect();
+  } catch (error) {
+    console.error("Failed to update credentials on reconnect:", error);
+    mqttError.set(error.toString());
+  }
+}
+
+// Handle initialization errors
+function handleInitializationError(err) {
+  console.error("Failed to initialize MQTT client:", err);
+  mqttError.set(err.toString());
+}
+
+// Publish a message to a topic
 export function publish(topic, message) {
-  if (!client || !client.connected) {
+  if (!isClientConnected()) {
+    console.error("MQTT client is not connected");
     throw new Error("MQTT client is not connected");
   }
+
   client.publish(topic, message, (err) => {
     if (err) {
       console.error(`Error publishing to topic ${topic}:`, err);
+    } else {
+      console.info(`Message published to topic ${topic}`);
     }
   });
 }
 
-// Subscribe to a specific topic with a specific callback
+// Subscribe to a topic with a callback
 export function subscribe(topic, callback) {
-  if (!client || !client.connected) {
+  if (!isClientConnected()) {
+    console.error("MQTT client is not connected");
     throw new Error("MQTT client is not connected");
   }
 
   client.subscribe(topic, (err) => {
     if (err) {
       console.error(`Error subscribing to topic ${topic}:`, err);
+    } else {
+      console.info(`Subscribed to topic ${topic}`);
     }
   });
-
-  // Store the listener callback for future reference
-  if (!topicListeners.has(topic)) {
-    topicListeners.set(topic, []);
-  }
-  topicListeners.get(topic).push(callback);
 
   client.on("message", (receivedTopic, message) => {
     if (receivedTopic === topic) {
@@ -91,100 +171,23 @@ export function subscribe(topic, callback) {
   });
 }
 
-// Unsubscribe from a specific topic for the current listener
-export function unsubscribe(topic, callback) {
-  if (!client || !client.connected) {
+// Unsubscribe from a topic
+export function unsubscribe(topic) {
+  if (!isClientConnected()) {
+    console.error("MQTT client is not connected");
     throw new Error("MQTT client is not connected");
   }
 
-  const listeners = topicListeners.get(topic);
-
-  if (listeners) {
-    const index = listeners.indexOf(callback);
-    if (index !== -1) {
-      // Remove the specific listener callback
-      listeners.splice(index, 1);
-      
-      // Unsubscribe from the topic if no more listeners are present
-      if (listeners.length === 0) {
-        client.unsubscribe(topic, (err) => {
-          if (err) {
-            console.error(`Error unsubscribing from topic ${topic}:`, err);
-          }
-        });
-      }
+  client.unsubscribe(topic, (err) => {
+    if (err) {
+      console.error(`Error unsubscribing from topic ${topic}:`, err);
+    } else {
+      console.info(`Unsubscribed from topic ${topic}`);
     }
-  }
-}
-
-// Register persistent listeners for specific topics (global listener for the topic)
-export function on(topic, listener) {
-  if (!client) {
-    throw new Error("MQTT client is not initialized");
-  }
-
-  client.on("message", (receivedTopic, message) => {
-    if (receivedTopic === topic) {
-      listener(message.toString());
-    }
-  });
-}
-
-// Subscribe to a topic for a single message with a timeout
-export function onceWithTimeout(topic, timeout) {
-  return new Promise((resolve, reject) => {
-    if (!client || !client.connected) {
-      return reject(new Error("MQTT client is not connected"));
-    }
-
-    const timeoutId = setTimeout(() => {
-      client.removeListener("message", onMessage);
-      reject(new Error(`Timeout waiting for message on topic ${topic}`));
-    }, timeout);
-
-    const onMessage = (receivedTopic, message) => {
-      if (receivedTopic === topic) {
-        clearTimeout(timeoutId);
-        client.removeListener("message", onMessage);
-        resolve(message.toString());
-      }
-    };
-
-    client.on("message", onMessage);
-    client.subscribe(topic, (err) => {
-      if (err) {
-        clearTimeout(timeoutId);
-        client.removeListener("message", onMessage);
-        reject(err);
-      }
-    });
-  });
-}
-
-export function once(topic) {
-  return new Promise((resolve, reject) => {
-    if (!client || !client.connected) {
-      return reject(new Error("MQTT client is not connected"));
-    }
-
-    const onMessage = (receivedTopic, message) => {
-      if (receivedTopic === topic) {
-        client.removeListener("message", onMessage);
-        resolve(message.toString());
-      }
-    };
-
-    client.on("message", onMessage);
-    client.subscribe(topic, (err) => {
-      if (err) {
-        client.removeListener("message", onMessage);
-        reject(err);
-      }
-    });
   });
 }
 
 // Check if the MQTT client is connected
-export function isConnected() {
+export function isClientConnected() {
   return client && client.connected;
 }

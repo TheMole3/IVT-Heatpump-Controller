@@ -2,63 +2,64 @@
   import { updateSetting } from "$lib/controller.js";
   import { settings, settingsDefault } from "$lib/store.js";
   import Temperature from "./Temperature.svelte";
-  import { subscribe, publish, unsubscribe } from './MqttManager'
+  import { subscribe, publish, unsubscribe } from './MqttManager';
 
   let currentSettings;
   let disabledSettings;
-  let loading = false; // Track loading state
-  let error = ''; // Track error message
-  let success = false; // Track success state
-  
-  // Reactive statement to track settings and their disabled states
+  let loading = false; // Loading state for UI
+  let error = ''; // Error message to show
+  let success = false; // Success state for UI
+
+  // Reactive statement to track current settings and their disabled states
   $: {
-    currentSettings = $settings
-    disabledSettings = $settings.disabledSettings
+    currentSettings = $settings;
+    disabledSettings = $settings.disabledSettings;
   }
 
   async function sendToHeatpump() {
     let data = {
       temp: currentSettings.temp,
       mode: currentSettings.mode,
-      fan:  currentSettings.fan,
+      fan: currentSettings.fan,
       power: currentSettings.power,
       highPower: currentSettings.highPower,
       tenDegreeMode: currentSettings.tenDegreeMode,
-      id: Math.floor((Math.random() * 99999))
-    }
+      id: Math.floor((Math.random() * 99999)),
+    };
 
     try {
-      // Indicate loading is in progress
+      // Indicate loading state
       loading = true;
-      error = ''; // Clear any previous error
-      success = false; // Clear success state
+      error = ''; // Clear previous errors
+      success = false; // Reset success state
 
-      console.log("Sending data to heatpump");
+      console.debug("Sending data to heatpump:", data);
       publish("heatpump/data", JSON.stringify(data));
 
       let timeout;
 
-      console.log("Waiting to hear back from heatpump");
+      console.info("Waiting for confirmation from heatpump...");
       let callback = (d) => {
         if (d == data.id) {
           clearTimeout(timeout);
-          console.log("Received back the right id!");
-          loading = false; // Hide the loading spinner
-          success = true; // Show success message
+          console.info("Received correct response from heatpump!");
+          loading = false; // Hide loading spinner
+          success = true; // Show success state
         }
       };
+
       subscribe("heatpump/received", callback);
 
       timeout = setTimeout(() => {
         unsubscribe("heatpump/received", callback);
-        console.error("Error waiting for heatpump/received");
+        console.error("Timeout: No response from heatpump.");
         loading = false;
         error = 'Timeout: No response from heatpump'; // Show error message
       }, 60 * 1000);
     } catch (err) {
-      console.error("Error whilst sending to heatpump", err);
+      console.error("Error while sending data to heatpump:", err);
       loading = false;
-      error = 'Error while sending data to heatpump';
+      error = 'Error while sending data to heatpump'; // Show error message
     }
   }
 </script>
@@ -144,7 +145,6 @@
         {:else} 
           <p>Väntar på bekräftelse från värmepumpen...</p>
         {/if}
-
       </div>
     </div>
   </div>
@@ -155,7 +155,6 @@
     <div class="bg-white p-6 rounded-lg shadow-lg">
       <div class="text-center">
         <p class="text-green-500 font-bold">Datan är skickad till värmepumpen!</p>
-        <!-- Close Button -->
         <button on:click={() => {success = false}} class="mt-8 btn btn-primary rounded w-full">Ok</button>
       </div>
     </div>
