@@ -42,20 +42,7 @@ export async function initializeMQTT() {
 
   client.on('error', async (err) => {
     if(err.code == 4) {
-      try {
-        let token = (await getUpdatedToken()).accessToken;
-        let userinfo = await fetchUserInfo(token);
-        client.connect("wss://mqtt.melo.se:2096/mqtt", {
-          username: userinfo.sub,
-          password: token,
-        }).catch((err) => {
-          console.error(`Faild to reconnect to MQTT, using token ${token} and sub ${userinfo.sub}`, err);
-        }); // create a client
-      } catch (err) {
-        console.log("catch!")
-        mqttError.set(err.toString())
-        console.error(err);
-      }
+      window.location.reload();
     }
 
     mqttError.set(err.toString())
