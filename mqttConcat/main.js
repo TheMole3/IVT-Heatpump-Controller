@@ -17,8 +17,6 @@ const OIDC_CONFIG = {
   scope: "openid profile",
 };
 
-console.log(OIDC_CONFIG)
-
 const MQTT_CONFIG = {
   brokerUrl: 'wss://mqtt.melo.se:2096/mqtt',
   clientId: "HeatpumpConcatenator",
@@ -82,72 +80,76 @@ function saveData() {
   }
 }
 
-// Main function to handle MQTT connection and processing
+function setupClient(client) {
+  client.on('connect', () => {
+    console.log('Connected to MQTT broker');
+
+    // Subscribe to the input topic to receive sensor data
+    client.subscribe(TOPICS.input, (err) => {
+      if (err) {
+        console.error('Failed to subscribe:', err);
+      } else {
+        console.log(`Subscribed to topic: ${TOPICS.input}`);
+      }
+    });
+  });
+
+  client.on('message', (topic, message) => {
+    if (topic === TOPICS.input) {
+      try {
+        const data = JSON.parse(message.toString().replace("nan", "null"));
+        const timestamp = moment().toISOString();
+        const newData = { timestamp, ...data };
+
+        sensorData.push(newData);
+        cleanupOldData();
+        saveData();
+
+        // Publish the updated data list to the output topic
+        client.publish(TOPICS.output, JSON.stringify(sensorData), { qos: 0, retain: true }, null);
+      } catch (error) {
+        console.error('Failed to process message:', error);
+      }
+    }
+  });
+
+  client.on('close', async () => {
+    console.log('Disconnected from MQTT broker. Fetching new credentials and reconnecting...');
+    try {
+      const token = await fetchAccessToken();
+      const decodedToken = jwtDecode.jwtDecode(token);
+
+      client.end(true, () => {
+        console.log('Existing MQTT client closed');
+      });
+
+      const newClient = mqtt.connect(MQTT_CONFIG.brokerUrl, {
+        clientId: MQTT_CONFIG.clientId,
+        username: decodedToken.sub,
+        password: token,
+      });
+
+      setupClient(newClient);
+    } catch (error) {
+      console.error('Failed to reconnect with new credentials:', error);
+    }
+  });
+}
+
 async function start() {
+  console.log("Version 1.2");
+
   try {
     const token = await fetchAccessToken();
     const decodedToken = jwtDecode.jwtDecode(token);
 
     const client = mqtt.connect(MQTT_CONFIG.brokerUrl, {
       clientId: MQTT_CONFIG.clientId,
-      username: decodedToken.sub, // Can be left empty if not required
+      username: decodedToken.sub,
       password: token,
     });
 
-    client.on('connect', () => {
-      console.log('Connected to MQTT broker');
-
-      // Subscribe to the input topic to receive sensor data
-      client.subscribe(TOPICS.input, (err) => {
-        if (err) {
-          console.error('Failed to subscribe:', err);
-        } else {
-          console.log(`Subscribed to topic: ${TOPICS.input}`);
-        }
-      });
-    });
-
-    client.on('message', (topic, message) => {
-      if (topic === TOPICS.input) {
-        try {
-          const data = JSON.parse(message.toString().replace("nan", "null"));
-          const timestamp = moment().toISOString();
-          const newData = { timestamp, ...data };
-
-          sensorData.push(newData);
-          cleanupOldData();
-          saveData();
-
-          // Publish the updated data list to the output topic
-          client.publish(TOPICS.output, JSON.stringify(sensorData), { qos: 0, retain: true }, null);
-        } catch (error) {
-          console.error('Failed to process message:', error);
-        }
-      }
-    });
-
-    client.on('error', async (err) => {
-      console.error('MQTT connection error:', err);
-      const token = await fetchAccessToken();
-      const decodedToken = jwtDecode.jwtDecode(token);
-
-      client.connect(MQTT_CONFIG.brokerUrl, {
-        clientId: MQTT_CONFIG.clientId,
-        username: decodedToken.sub, // Can be left empty if not required
-        password: token,
-      });
-    });
-
-    client.on('disconnect', async () => {
-      const token = await fetchAccessToken();
-      const decodedToken = jwtDecode.jwtDecode(token);
-
-      client.connect(MQTT_CONFIG.brokerUrl, {
-        clientId: MQTT_CONFIG.clientId,
-        username: decodedToken.sub, // Can be left empty if not required
-        password: token,
-      });
-    })
+    setupClient(client);
 
     // Load existing data from the file when the application starts
     loadData();
@@ -156,5 +158,5 @@ async function start() {
   }
 }
 
-// Start the application
+
 start();

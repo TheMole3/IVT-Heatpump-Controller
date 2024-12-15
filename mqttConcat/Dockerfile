@@ -4,6 +4,9 @@ FROM node:16-slim
 # Set working directory
 WORKDIR /usr/src/app
 
+#Create sensor dir
+RUN mkdir -p /usr/src/app/data
+
 # Install dependencies
 COPY package*.json ./
 RUN npm install
