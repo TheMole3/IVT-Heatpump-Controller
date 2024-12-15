@@ -2,7 +2,14 @@
 
 Sensor mySensor;
 
-void Sensor::readProcessSensorData(PubSubClient &mqttClient) {
+void Sensor::readProcessSensorData(PubSubClient &mqttClient,  unsigned long updateInterval) {
+
+    if (updateInterval > 15000) {
+      mySensor.updateInterval = updateInterval;
+    } else {
+      mySensor.updateInterval = 15000;
+    }
+
     unsigned long currentMillis = millis();
 
     if ((currentMillis - mySensor.lastUpdateTime) >= mySensor.updateInterval) {
@@ -28,6 +35,8 @@ void Sensor::readProcessSensorData(PubSubClient &mqttClient) {
         }
 
         mqttClient.publish("heatpump/temperature", message.c_str());
+
+        Serial.print("Next temperature send in: "); Serial.print(mySensor.updateInterval); Serial.println(" ms.");
     }
 }
 
@@ -44,6 +53,5 @@ void Sensor::onReceive(uint8_t *macAddr, uint8_t *incomingData, uint8_t len) {
 
     unsigned long currentMillis = millis();
     untilNextUpdate.time = mySensor.updateInterval-(currentMillis - mySensor.lastUpdateTime);
-    Serial.println(untilNextUpdate.time);
     esp_now_send(macAddr, (uint8_t *)&untilNextUpdate, sizeof((untilNextUpdate)));
 }
