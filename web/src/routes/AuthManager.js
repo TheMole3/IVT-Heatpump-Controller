@@ -22,17 +22,17 @@ function getStoreValue(store) {
 // Log out the user
 async function logout() {
   try {
-    accessToken.set(null);
-    refreshToken.set(null);
-
     const config = await getOidcConfig();
     if (config?.end_session_endpoint) {
       const logoutUrl = `${
         config.end_session_endpoint
       }?client_id=${clientId}&post_logout_redirect_uri=${encodeURIComponent(
-        redirectUri
+        "https://google.com"
       )}`;
-      window.location.href = logoutUrl;
+
+      window.localStorage.removeItem("refreshToken");
+
+      window.location.replace(logoutUrl);
     } else {
       window.location.href = redirectUri; // Fallback to home
     }
