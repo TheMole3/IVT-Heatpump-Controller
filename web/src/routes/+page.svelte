@@ -58,7 +58,7 @@
   }
 </script>
 
-<div class="w-screen min-h-screen bg-base-200 select-none flex justify-center">
+<div class="w-full min-h-screen bg-base-200 select-none flex justify-center">
   <div class="w-screen md:w-7/12 lg:w-5/12 sm flex flex-col items-center">
     {#if loading}
       <div class="loading mt-24">Loading...</div>
