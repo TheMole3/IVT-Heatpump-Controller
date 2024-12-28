@@ -12,7 +12,7 @@ This system functions like the stock remote for the IVT heat pump but allows con
   - Switch modes (e.g., heating, cooling)  
   - Change fan speed  
   - Enable/disable power mode and 10°C mode  
-- **Integrated temperature sensor**: View real-time temperature readings on the web interface via the main ESP8266 controller.  
+- **Integrated temperature sensor**: View semi-real-time temperature readings on the web interface.  
 - **Optional extra temperature sensor**: Use an additional ESP8266-based sensor with **ESP-NOW** communication to monitor temperature from another spot in the house.  
 - Web-based user interface for convenient control over the internet.  
 
@@ -29,8 +29,9 @@ The system is built with:
 
 ---
 
-## Internet Control  
+## Internet Control
 The system uses MQTT for communication, with a web app acting as the primary interface for user interaction. The web app provides an easy way to control the heat pump remotely.  
+
 ---
 
 ## Hardware Requirements and Assembly  
