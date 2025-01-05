@@ -4,7 +4,7 @@
 #include <ArduinoJson.h>
 #include <EEPROM.h>
 #include <PubSubClient.h>
-#include <IRController.h>
+#include <IRController2.h>
 #include <ESP8266mDNS.h>
 #include <Sensor.h>
 #include <espnow.h>
@@ -27,7 +27,7 @@ PubSubClient mqttClient(espClient);
 
 WiFiManager wifiManager;
 AsyncWebServer server(80);
-IRController ircontroller;
+IRController2 ircontroller;
 Sensor sensor;
 
 String lastmessage = "";
@@ -141,7 +141,7 @@ void callback(char *topic, byte *payload, unsigned int length)
         lastmessage = message;
 
         // Create an instance of the struct
-        IRController::IRParams params;
+        IRController2::IRParams params;
 
         // Parse the JSON string
         StaticJsonDocument<200> doc;

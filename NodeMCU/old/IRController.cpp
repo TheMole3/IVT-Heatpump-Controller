@@ -40,6 +40,7 @@ void IRController::setBitSegment(uint8_t* irPackage, const BitSegment& bs, uint8
 
 void IRController::sendIR(IRParams params) {
     uint8_t SharpTemplate[] = { 0xAA, 0x5A, 0xCF, 0x10, 0x00, 0x00, 0x31, 0x06, 0x08, 0x80, 0x04, 0xF0, 0x01 };
+    //                             0     1     2     3     4     5     6     7     8     9    10    11    12
 
     bool redo = false;
 
