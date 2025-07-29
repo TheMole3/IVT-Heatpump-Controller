@@ -85,10 +85,7 @@ void BetterIVTHeatpumpIR::send(IRSender& IR, uint8_t powerModeCmd, uint8_t opera
   if ( temperatureCmd > 16 && temperatureCmd < 32)
   {
     temperature = temperatureCmd;
-  } else if(operatingMode == SHARP_AIRCON1_MODE_AUTO || ) {
-    temperature = temperatureCmd
   }
-
 
   Serial.print("Power mode: "); Serial.print(powerMode); Serial.print(" "); Serial.println(powerModeCmd);
   Serial.print("Operating mode: "); Serial.print(operatingMode); Serial.print(" "); Serial.println(operatingModeCmd);

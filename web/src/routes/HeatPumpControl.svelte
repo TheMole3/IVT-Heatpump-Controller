@@ -153,7 +153,7 @@
 </div>
 
 {#if loading || error}
-  <div class="fixed inset-0 flex items-center justify-center bg-gray-500 bg-opacity-50">
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-500 bg-opacity-50">
     <div class="w-8/12 p-6 bg-white rounded-lg shadow-lg">
       <div class="flex justify-center mb-4">
         <div class="w-8 h-8 loading"></div>
@@ -171,7 +171,7 @@
 {/if}
 
 {#if success}
-  <div class="fixed inset-0 flex items-center justify-center bg-gray-500 bg-opacity-50">
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-500 bg-opacity-50">
     <div class="p-6 bg-white rounded-lg shadow-lg">
       <div class="text-center">
         <p class="font-bold text-green-500">Datan är skickad till värmepumpen!</p>

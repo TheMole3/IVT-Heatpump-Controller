@@ -1,214 +1,249 @@
-#define WEBSERVER_H
-#include <WiFiManager.h>
-#include <ESPAsyncWebServer.h>
+#define ENABLE_USER_AUTH
+#define ENABLE_DATABASE
+
+#include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
-#include <EEPROM.h>
-#include <PubSubClient.h>
-#include <IRController2.h>
-#include <ESP8266mDNS.h>
-#include <Sensor.h>
-#include <espnow.h>
-#include <esp_oauth.h>
+#include <FirebaseClient.h>
+#include "IRController.h"
+#include <WiFiUdp.h>
+#include <NTPClient.h>
+#include <AM2302-Sensor.h>
 
-struct Config
-{
-    char mqttServer[40];
-    int mqttPort;
-    char mqttUsername[40];
-    char mqttPassword[80];
-    char OIDCHost[40];
-    char clientID[50];
-    int temperatureInterval;
-} config;
+#include "secrets.h"
 
-OAuthClient OAuth(config.OIDCHost, config.clientID, config.mqttUsername, config.mqttPassword);
-WiFiClient espClient;
-PubSubClient mqttClient(espClient);
+// =============== Type Definitions ===============
+struct HeatpumpData {
+    int power;
+    int tenMode;
+    int fan;
+    float temp;
+};
 
-WiFiManager wifiManager;
-AsyncWebServer server(80);
-IRController2 ircontroller;
-Sensor sensor;
+// =============== Global Objects ===============
+IRController irController;
+AM2302::AM2302_Sensor temperatureSensor(Config::SENSOR_PIN);
 
-String lastmessage = "";
+// NTP Client
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, Config::NTP_SERVER, Config::TIMEZONE_OFFSET, Config::NTP_UPDATE_INTERVAL);
 
-void saveConfig()
-{
-    EEPROM.begin(sizeof(config));
-    EEPROM.put(0, config);
-    EEPROM.commit();
+// Firebase Authentication
+UserAuth userAuth(Config::WEB_API_KEY, Config::USER_EMAIL, Config::USER_PASSWORD);
+
+// Firebase App and Database
+FirebaseApp firebaseApp;
+
+// For streaming data
+WiFiClientSecure sslClientStream;
+using AsyncClient = AsyncClientClass;
+AsyncClient asyncClientStream(sslClientStream);
+RealtimeDatabase databaseStream;
+
+// For sending data
+WiFiClientSecure sslClientSend;
+AsyncClient asyncClientSend(sslClientSend);
+RealtimeDatabase databaseSend;
+
+// =============== Function Declarations ===============
+void initializeWiFi();
+void initializeFirebase();
+void initializeTimeClient();
+void initializeSensor();
+void processFirebaseData(AsyncResult& result);
+void handleSensorReadings();
+unsigned long long getCurrentUnixTime();
+
+// =============== Initialization Functions ===============
+void setup() {
+    Serial.begin(115200);
+    while (!Serial) {} // Wait for serial port to connect (for debugging)
+
+    initializeWiFi();
+    initializeTimeClient();
+    initializeSensor();
+    initializeFirebase();
+
+    Serial.println("System initialization complete");
 }
 
-void loadConfig()
-{
-    EEPROM.begin(sizeof(config));
-    EEPROM.get(0, config);
-    EEPROM.end();
-}
+void initializeWiFi() {
+    Serial.print("Connecting to WiFi");
+    WiFi.begin(Config::WIFI_SSID, Config::WIFI_PASSWORD);
 
-// Set up WiFi and configuration page
-void setupWiFiAndConfig()
-{
-    String newHostname = "heatpump";
-    WiFi.hostname(newHostname.c_str());
-
-    loadConfig();
-
-    Serial.println("Connecting to WiFi...");
-
-    // Attempt to connect to WiFi; block further execution if connection fails
-    if (!wifiManager.autoConnect("HeatpumpController"))
-    {
-        Serial.println("Failed to connect to WiFi, restarting...");
-        delay(60000);
-        ESP.restart();
+    unsigned long startTime = millis();
+    while (WiFi.status() != WL_CONNECTED && 
+          millis() - startTime < Config::WIFI_CONNECT_TIMEOUT) {
+        Serial.print(".");
+        delay(Config::WIFI_RETRY_DELAY);
     }
 
-    // If connected, log IP address
-    Serial.print("Connected! IP Address: ");
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("\nFailed to connect to WiFi");
+        ESP.restart(); // Consider more graceful recovery
+    }
+
+    Serial.println("\nWiFi connected");
+    Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
+}
 
-    // Start mDNS at esp8266.local address
-    if (!MDNS.begin("heatpump"))
-    {
-        Serial.println("Error starting mDNS");
+void initializeFirebase() {
+    // Configure SSL clients
+    sslClientStream.setInsecure();
+    sslClientStream.setTimeout(Config::SSL_TIMEOUT);
+    sslClientStream.setBufferSizes(Config::SSL_RX_BUFFER_SIZE, Config::SSL_TX_BUFFER_SIZE);
+
+    sslClientSend.setInsecure();
+    sslClientSend.setTimeout(Config::SSL_TIMEOUT);
+    sslClientSend.setBufferSizes(Config::SSL_RX_BUFFER_SIZE, Config::SSL_TX_BUFFER_SIZE);
+
+    // Initialize Firebase authentication
+    initializeApp(asyncClientStream, firebaseApp, getAuth(userAuth), [](AsyncResult&){}, "authTask");
+    
+    // Get database references
+    firebaseApp.getApp<RealtimeDatabase>(databaseStream);
+    firebaseApp.getApp<RealtimeDatabase>(databaseSend);
+    
+    databaseStream.url(Config::DATABASE_URL);
+    databaseSend.url(Config::DATABASE_URL);
+
+    // Set filters for SSE (only listen to put/patch events)
+    asyncClientStream.setSSEFilters("put, patch");
+
+    // Start listening to heatpump commands
+    databaseStream.get(asyncClientStream, "/heatpump/", processFirebaseData, true, "RTDB_Listen");
+}
+
+void initializeTimeClient() {
+    timeClient.begin();
+    Serial.println("NTP client initialized");
+}
+
+void initializeSensor() {
+    if (!temperatureSensor.begin()) {
+        Serial.println("Error: Failed to initialize temperature sensor");
+        return;
     }
-    Serial.println("mDNS started");
-    MDNS.addService("http", "tcp", 80);
+    delay(Config::SENSOR_INIT_DELAY); // Initial stabilization delay
+    Serial.println("Temperature sensor initialized");
+}
 
-    // Initialize ESP-NOW
-    if (esp_now_init() != 0)
-    {
-        Serial.println("Error initializing ESP-NOW");
+// =============== Data Processing Functions ===============
+void processFirebaseData(AsyncResult& result) {
+    if (!result.isResult()) return;
+
+    if (result.isError()) {
+        Serial.printf("Error in task %s: %s (code %d)\n",
+                    result.uid().c_str(),
+                    result.error().message().c_str(),
+                    result.error().code());
         return;
     }
 
-    esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
-    esp_now_register_recv_cb(&sensor.onReceive);
+    if (!result.available()) return;
 
+    RealtimeDatabaseResult& rtdb = result.to<RealtimeDatabaseResult>();
 
-    // Setup configuration server page
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-        String mqttconnected = "No";
-        if(mqttClient.connected()) {
-            mqttconnected = "Yes";
-        }
+    if (rtdb.isStream()) {
+        const String eventType = rtdb.event();
+        const String dataPath = rtdb.dataPath();
+        const char* jsonStr = rtdb.to<const char*>();
 
-        String html = "<html><form method='POST' action='/'><style>form {display:grid;row-gap:5px;grid: auto auto/ auto auto auto auto; max-width:42rem; width:100%;} input {grid-column: span 3}</style>";
-        html += "MQTT Server: <input name='mqttServer' value='" + String(config.mqttServer) + "'><br>";
-        html += "MQTT Port: <input name='mqttPort' value='" + String(config.mqttPort) + "'><br>";
-        html += "MQTT Username: <input name='mqttUsername' value='" + String(config.mqttUsername) + "'><br>";
-        html += "MQTT Password: <input type='password' name='mqttPassword' value='" + String(config.mqttPassword) + "'><br>";
-        html += "OIDC Host: <input name='OIDCHost' value='" + String(config.OIDCHost) + "'><br>";
-        html += "Client_id: <input name='clientID' value='" + String(config.clientID) + "'><br>";
-        html += "Temperature collection interval (m): <input name='temperatureInterval' value='" + String(config.temperatureInterval) + "'><br>";
-        html += "<input type='submit'></form>";
-        html += "<p>Connected to MQTT Server? : " + mqttconnected + "</p>";
-        html += "<p>MAC Adress: " + WiFi.macAddress() + "</p>";
-        html += "<p>Last received message: </p><p>" + lastmessage + "</p>";
-        html += "</html>";
-        request->send(200, "text/html", html); });
+        Serial.printf("[Event] Type: %s, Path: %s, Data: %s\n", 
+                     eventType.c_str(), dataPath.c_str(), jsonStr);
 
-    server.on("/", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
-        if (request->hasParam("mqttServer", true)) {
-            strcpy(config.mqttServer, request->getParam("mqttServer", true)->value().c_str());
-            config.mqttPort = request->getParam("mqttPort", true)->value().toInt();
-            strcpy(config.mqttUsername, request->getParam("mqttUsername", true)->value().c_str());
-            strcpy(config.mqttPassword, request->getParam("mqttPassword", true)->value().c_str());
-            strcpy(config.OIDCHost, request->getParam("OIDCHost", true)->value().c_str());
-            strcpy(config.clientID, request->getParam("clientID", true)->value().c_str());
-            config.temperatureInterval = request->getParam("temperatureInterval", true)->value().toInt();
-            saveConfig();
-        }
-        request->send(200, "text/plain", "Configuration saved. Restart device."); });
-
-    server.begin();
-}
-
-// MQTT callback function
-void callback(char *topic, byte *payload, unsigned int length)
-{
-    String message;
-    for (unsigned int i = 0; i < length; i++)
-    {
-        message += (char)payload[i];
-    }
-    if (strcmp(topic, "heatpump/data") == 0)
-    {
-        Serial.println(message);
-        lastmessage = message;
-
-        // Create an instance of the struct
-        IRController2::IRParams params;
-
-        // Parse the JSON string
-        StaticJsonDocument<200> doc;
-        DeserializationError error = deserializeJson(doc, message);
-
-        if (error)
-        {
-            Serial.print(F("deserializeJson() failed: "));
-            Serial.println(error.f_str());
+        // Skip empty or heartbeat messages
+        if (strlen(jsonStr) == 0 || strcmp(jsonStr, "null") == 0) {
+            Serial.println("Ignoring empty/null data");
             return;
         }
 
-        // Map JSON values to the struct
-        params.temp = doc["temp"];
-        params.mode = doc["mode"];
-        params.fan = doc["fan"];
-        params.power = doc["power"];
-        params.highPower = doc["highPower"];
-        params.tenDegreeMode = doc["tenDegreeMode"];
+        if(strcmp(dataPath.c_str(), "/data") != 0) {
+            Serial.printf("Ignoring event for path: %s\n", dataPath.c_str());
+            return;
+        }
 
-        mqttClient.publish("heatpump/received", String(doc["id"]).c_str());
-        Serial.println("Got heatpump/data");
+        // Parse JSON
+        StaticJsonDocument<256> doc;
+        DeserializationError err = deserializeJson(doc, jsonStr);
 
-        // Call function from IrController.h
-        ircontroller.sendIR(params);
+        if (err) {
+            Serial.print("JSON parsing failed: ");
+            Serial.println(err.c_str());
+            return;
+        }
+
+        // Validate required fields
+        const char* requiredFields[] = {"fan", "power", "temp", "tenDegreeMode"};
+        for (const char* field : requiredFields) {
+            if (!doc.containsKey(field)) {
+                Serial.printf("Missing required field: %s\n", field);
+                return;
+            }
+        }
+
+        // Process valid command
+        Serial.println("Processing valid heatpump command");
+        irController.send(
+            doc["power"].as<int>(),
+            doc["tenDegreeMode"].as<int>(),
+            doc["fan"].as<int>(),
+            doc["temp"].as<float>()
+        );
+
+        // Send acknowledgment if ID exists
+        if (doc.containsKey("id")) {
+            databaseSend.set(asyncClientSend, "/response", doc["id"].as<String>());
+        }
     }
 }
 
-// Setup MQTT connection
-void setupMqtt()
-{
-    String accessToken = OAuth.getAccessToken();
-    String sub = OAuth.getUserInfo(accessToken);
+// =============== Sensor Handling Functions ===============
+void handleSensorReadings() {
+    static unsigned long lastReadingTime = 0;
+    unsigned long currentTime = millis();
 
-    mqttClient.setServer(config.mqttServer, config.mqttPort);
-    mqttClient.setCallback(callback);
-    mqttClient.setBufferSize(1536);
-    mqttClient.setKeepAlive(60);
+    if (currentTime - lastReadingTime >= Config::SENSOR_READ_INTERVAL || lastReadingTime == 0) {
+        lastReadingTime = currentTime;
 
-    // Serial.println("Trying to connect to mqtt with credentials");
-    // Serial.println(sub.c_str());Serial.println( accessToken.c_str());
+        auto status = temperatureSensor.read();
+        if (status != AM2302::AM2302_READ_OK) {
+            Serial.println("Error reading sensor data");
+            return;
+        }
 
-    if (mqttClient.connect("ESP8266Client", sub.c_str(), accessToken.c_str(), 0, 2, 0, 0, 1))
-    {
-        mqttClient.subscribe("heatpump/data");
-        Serial.println("Connected to MQTT broker.");
-    }
-    else
-    {
-        Serial.println("Failed to connect to MQTT broker.");
+        float temperature = temperatureSensor.get_Temperature();
+        float humidity = temperatureSensor.get_Humidity();
+        unsigned long long timestamp = getCurrentUnixTime();
+
+        // Send temperature data
+        databaseSend.set(asyncClientSend, 
+                        "/temp/" + String(timestamp) + "/temp", 
+                        temperature, 
+                        [](AsyncResult&){}, 
+                        "pushTempTask");
+
+        // Send humidity data
+        databaseSend.set(asyncClientSend, 
+                        "/temp/" + String(timestamp) + "/hum", 
+                        humidity, 
+                        [](AsyncResult&){}, 
+                        "pushHumTask");
+
+        Serial.printf("Sent sensor data - Temp: %.1f°C, Hum: %.1f%%\n", temperature, humidity);
     }
 }
 
-void setup()
-{
-    Serial.begin(9600);
-    setupWiFiAndConfig();
-    // Additional setup code here if connected to WiFi
+unsigned long long getCurrentUnixTime() {
+    timeClient.update();
+    return timeClient.getEpochTime();
 }
 
-void loop()
-{
-    if (!mqttClient.connected())
-    {
-        setupMqtt();
-        delay(10000);
-    }
-    mqttClient.loop();
-    sensor.readProcessSensorData(mqttClient, config.temperatureInterval * 60 * 1000);
+// =============== Main Loop ===============
+void loop() {
+    firebaseApp.loop(); // Handle Firebase background tasks
+    handleSensorReadings();
+    delay(100); // Small delay to prevent watchdog triggers
 }
