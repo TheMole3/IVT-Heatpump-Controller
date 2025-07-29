@@ -38,7 +38,7 @@
     console.log(entries)
     return entries.map(([ts, val]) => ({
       x: new Date(Number(ts)*1000),
-      y: val.temp
+      y: val.temp - 1 // Correct -1 deg
     })).sort((a, b) => a.x - b.x);
   }
 
