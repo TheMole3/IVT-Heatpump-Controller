@@ -175,15 +175,6 @@ void processFirebaseData(AsyncResult& result) {
             return;
         }
 
-        // Validate required fields
-        const char* requiredFields[] = {"fan", "power", "temp", "tenDegreeMode"};
-        for (const char* field : requiredFields) {
-            if (!doc.containsKey(field)) {
-                Serial.printf("Missing required field: %s\n", field);
-                return;
-            }
-        }
-
         // Process valid command
         Serial.println("Processing valid heatpump command");
         irController.send(
@@ -244,6 +235,8 @@ unsigned long long getCurrentUnixTime() {
 // =============== Main Loop ===============
 void loop() {
     firebaseApp.loop(); // Handle Firebase background tasks
-    handleSensorReadings();
-    delay(100); // Small delay to prevent watchdog triggers
+    if(firebaseApp.ready()) {
+            handleSensorReadings();
+    }
+    delay(100);
 }

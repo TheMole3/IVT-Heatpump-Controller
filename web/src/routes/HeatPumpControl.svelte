@@ -76,7 +76,7 @@
     } catch (err) {
       console.error("Error while sending data to heatpump:", err);
       loading = false;
-      error = 'Error while sending data to heatpump'; // Show error message
+      error = 'Error while sending data to heatpump<br>' + err; // Show error message
     }
   }
 </script>
