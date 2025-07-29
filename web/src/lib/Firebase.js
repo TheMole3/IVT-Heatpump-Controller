@@ -50,6 +50,8 @@ export const writeHeatpumpData = async (data) => {
     if (!data) {
       throw new Error('No data provided to writeHeatpumpData');
     }
+
+    if(isNaN(data.temp)) data.temp = "20";
     
     await set(ref(db, '/heatpump/data'), data);
     console.log('Heatpump data successfully written');
