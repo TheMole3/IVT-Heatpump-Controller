@@ -2,7 +2,7 @@
   import { updateSetting } from "$lib/controller.js";
   import { settings, settingsDefault } from "$lib/store.js";
   import Temperature from "./Temperature.svelte";
-  import { subscribe, publish, unsubscribe } from './MqttManager';
+  import { writeHeatpumpData, listenForResponse } from "$lib/Firebase.js"
 
   let currentSettings;
   let disabledSettings;
@@ -19,10 +19,8 @@
   async function sendToHeatpump() {
     let data = {
       temp: currentSettings.temp,
-      mode: currentSettings.mode,
       fan: currentSettings.fan,
       power: currentSettings.power,
-      highPower: currentSettings.highPower,
       tenDegreeMode: currentSettings.tenDegreeMode,
       id: Math.floor((Math.random() * 99999)),
     };
@@ -34,13 +32,13 @@
       success = false; // Reset success state
 
       console.debug("Sending data to heatpump:", data);
-      publish("heatpump/data", JSON.stringify(data));
+      writeHeatpumpData(data);
 
       let timeout;
 
       console.info("Waiting for confirmation from heatpump...");
-      let callback = (d) => {
-        if (d == data.id) {
+      let callback = (data, error) => {
+        if (data == data.id) {
           clearTimeout(timeout);
           console.info("Received correct response from heatpump!");
           loading = false; // Hide loading spinner
@@ -48,13 +46,32 @@
         }
       };
 
-      subscribe("heatpump/received", callback);
+      const stopListening = listenForResponse((d, err) => {
+        if (d) {
+          console.log("Received data:", d);
+
+          if (d == data.id) {
+            console.info("Received correct response from heatpump!");
+            
+            loading = false; // Hide loading spinner
+            success = true; // Show success state
+
+            clearTimeout(timeout);
+            stopListening(); // Stop listening
+          }
+        } else if (err) {
+          console.warn("Error or no data:", err);
+          loading = false;
+          error = err; // Show error message
+        }
+      });
 
       timeout = setTimeout(() => {
-        unsubscribe("heatpump/received", callback);
         console.error("Timeout: No response from heatpump.");
         loading = false;
         error = 'Timeout: No response from heatpump'; // Show error message
+        stopListening();
+
       }, 60 * 1000);
     } catch (err) {
       console.error("Error while sending data to heatpump:", err);
@@ -69,34 +86,21 @@
   <Temperature bind:temp={currentSettings.temp} bind:disabled={disabledSettings.temp} bind:mode={currentSettings.mode} {updateSetting}></Temperature>
 </div>
 
-<button on:click={() => { updateSetting("power", !currentSettings.power) }} class="btn {currentSettings.power ? 'btn-success' : 'btn-error'} mt-10 w-8/12 rounded">
-  {currentSettings.power ? 'På' : 'Av'}
-</button>
 
-<div class="mt-4 w-8/12 flex">
-  <div class="w-full grid grid-flow-col grid-cols-2 justify-between drop-shadow-sm gap-4">
-    <button on:click={() => { updateSetting("highPower", !currentSettings.highPower) }} class="btn btn-primary h-full rounded {disabledSettings.highPower ? 'opacity-20 pointer-events-none' : ''}">
-      <span class="p-4">High <br>Power</span>
-    </button>
-    <button on:click={() => { updateSetting("tenDegreeMode", !currentSettings.tenDegreeMode) }} class="btn btn-primary h-full rounded {disabledSettings.tenDegreeMode ? 'opacity-20 pointer-events-none' : ''}">
-      <span class="p-4">10° <br>Läge</span>
-    </button>
-  </div>
-</div>
 
-<div class="mt-6 w-full">
-  <div class="flex flex-col w-full items-center">
+<div class="w-full mt-6">
+  <div class="flex flex-col items-center w-full">
     <div class="w-9/12 flex flex-col  {disabledSettings.fan ? 'opacity-20 pointer-events-none' : ''}">
-      <span class="mb-2 w-full text-center">Fläkt</span>
+      <span class="w-full mb-2 text-center">Fläkt</span>
       <div class="mx-3">
         <input class="range range-sm" type="range" min="0" max="3" on:change={(e) => updateSetting("fan", parseInt(e.target.value))} bind:value={currentSettings.fan} step="1" />
-        <div class="w-full flex justify-between text-xs px-2">
+        <div class="flex justify-between w-full px-2 text-xs">
           <span>|</span>
           <span>|</span>
           <span>|</span>
           <span>|</span>
         </div>
-        <div class="w-full flex justify-between text-xs px-2">
+        <div class="flex justify-between w-full px-2 text-xs">
           <span>Auto</span>
           <span>Låg</span>
           <span>Med</span>
@@ -105,43 +109,59 @@
       </div>
     </div>
 
-    <div class="mt-6 w-9/12 flex flex-col {disabledSettings.mode ? 'opacity-20 pointer-events-none' : ''}">
-      <span class="mb-2 w-full text-center">Läge</span>
+    <button on:click={() => { updateSetting("power", !currentSettings.power) }} class="btn {currentSettings.power ? 'btn-success' : 'btn-error'} {currentSettings.tenDegreeMode ?"opacity-20 pointer-events-none":""} mt-10 w-8/12 rounded">
+      {currentSettings.power ? 'På' : 'Av'}
+    </button>
+    
+    <div class="flex w-8/12 mt-6">
+      <div class="grid justify-between w-full grid-flow-col grid-cols-1 gap-4 drop-shadow-sm">
+        <!--<button on:click={() => { updateSetting("highPower", !currentSettings.highPower) }} class="btn btn-primary h-full rounded {disabledSettings.highPower ? 'opacity-20 pointer-events-none' : ''}">
+          <span class="p-4">High <br>Power</span>
+        </button>-->
+        <button on:click={() => { updateSetting("tenDegreeMode", !currentSettings.tenDegreeMode) }} class="btn btn-primary h-full rounded {currentSettings.tenDegreeMode ? 'btn-success' : 'btn-error'}">
+          <span class="p-4">10°Läge</span>
+        </button>
+      </div>
+    </div>
+
+
+    <!--<div class="mt-6 w-9/12 flex flex-col {disabledSettings.mode ? 'opacity-20 pointer-events-none' : ''}">
+      <span class="w-full mb-2 text-center">Läge</span>
       <div class="mx-3">
         <input class="range range-sm" type="range" min="0" max="3"  on:change={(e) => updateSetting("mode", parseInt(e.target.value))} bind:value={currentSettings.mode} step="1" />
-        <div class="w-full flex justify-between text-xs px-2">
+        <div class="flex justify-between w-full px-2 text-xs">
           <span>|</span>
           <span>|</span>
           <span>|</span>
           <span>|</span>
         </div>
-        <div class="w-full flex justify-between text-xs px-2">
+        <div class="flex justify-between w-full px-2 text-xs">
           <span>Auto</span>
           <span>Värme</span>
           <span>Kylning</span>
           <span>Avfukt</span>
         </div>
       </div>
-    </div>
+    </div>-->
   </div>
 </div>
 
-<div class="w-8/12 mt-6">
-  <button on:click={sendToHeatpump} class="btn btn-primary mt-3 mb-8 w-full rounded">
-    Skicka till värmepumpen
+<div class="w-8/12 mt-3">
+  <button on:click={sendToHeatpump} class="w-full h-16 mt-3 mb-8 rounded btn btn-primary">
+    OK! <br>Skicka till värmepumpen
   </button>
 </div>
 
 {#if loading || error}
-  <div class="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center">
-    <div class="bg-white p-6 rounded-lg shadow-lg w-8/12">
+  <div class="fixed inset-0 flex items-center justify-center bg-gray-500 bg-opacity-50">
+    <div class="w-8/12 p-6 bg-white rounded-lg shadow-lg">
       <div class="flex justify-center mb-4">
-        <div class="loading h-8 w-8"></div>
+        <div class="w-8 h-8 loading"></div>
       </div>
       <div class="text-center">
         {#if error}
-          <p class="text-red-500 mt-4">{error}</p>
-          <button on:click={() => {loading = false, error = ''}} class="mt-8 btn btn-primary rounded w-full">Ok</button>
+          <p class="mt-4 text-red-500">{error}</p>
+          <button on:click={() => {loading = false, error = ''}} class="w-full mt-8 rounded btn btn-primary">Ok</button>
         {:else} 
           <p>Väntar på bekräftelse från värmepumpen...</p>
         {/if}
@@ -151,11 +171,11 @@
 {/if}
 
 {#if success}
-  <div class="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center">
-    <div class="bg-white p-6 rounded-lg shadow-lg">
+  <div class="fixed inset-0 flex items-center justify-center bg-gray-500 bg-opacity-50">
+    <div class="p-6 bg-white rounded-lg shadow-lg">
       <div class="text-center">
-        <p class="text-green-500 font-bold">Datan är skickad till värmepumpen!</p>
-        <button on:click={() => {success = false}} class="mt-8 btn btn-primary rounded w-full">Ok</button>
+        <p class="font-bold text-green-500">Datan är skickad till värmepumpen!</p>
+        <button on:click={() => {success = false}} class="w-full mt-8 rounded btn btn-primary">Ok</button>
       </div>
     </div>
   </div>

@@ -1,44 +1,22 @@
 <script>
   // Trigger page initialization when the component is mounted
   import { onMount } from "svelte";
-  import { fetchUserInfo } from "$lib/utils.js"; // Assuming you have a function getUserInfo to fetch user info based on the token
-  import { getUpdatedToken, logout, startOidcFlow } from "./AuthManager.js";
   import HeatPumpControl from "./HeatPumpControl.svelte";
   import Fa from 'svelte-fa'
   import { faSignOut } from '@fortawesome/free-solid-svg-icons'
-  import {initializeMQTT, mqttError} from './MqttManager.js'
   import Graph from './Graph.svelte'
+  import {login} from '$lib/Firebase.js'
+  import { writable } from 'svelte/store';
 
-  let userInfo = null;
+
+  let userInfo = writable();
   let loading = true; // Manage loading state locally
-  let loginError = false; // Manage loginError state locally
+  let loginError = writable(); // Manage loginError state locally
 
   // Function to initialize the page and check for valid token
   async function initializePage() {
     try {
-      const {
-        accessToken,
-        loading: tokenLoading,
-        loginError: tokenLoginError,
-      } = await getUpdatedToken();
-
-      if (tokenLoading) {
-        loading = true;
-        return; // Wait until loading is complete
-      }
-
-      if (tokenLoginError) {
-        loginError = tokenLoginError;
-        loading = false;
-        return; // Handle login error
-      }
-
-      if (accessToken) {
-        userInfo = await fetchUserInfo(accessToken); // Get user info with the valid token
-        await initializeMQTT();
-      } else {
-        throw new Error("No valid access token.");
-      }
+      login(loginError, userInfo);
     } catch (err) {
       console.error("Error initializing page:", err);
       loginError = err;
@@ -52,31 +30,22 @@
     initializePage();
   });
 
-  // Function to handle login redirect if the token is invalid
-  function handleLoginRedirect() {
-    startOidcFlow();
+  function reload() {
+    window.reload();
   }
 </script>
 
-<div class="w-full min-h-screen bg-base-200 select-none flex justify-center">
-  <div class="w-screen md:w-7/12 lg:w-5/12 sm flex flex-col items-center">
+<div class="flex justify-center w-full min-h-screen select-none bg-base-200">
+  <div class="flex flex-col items-center w-screen md:w-7/12 lg:w-5/12 sm">
     {#if loading}
-      <div class="loading mt-24">Loading...</div>
-    {:else if loginError}
+      <div class="mt-24 loading">Loading...</div>
+    {:else if $loginError}
       <h1 class="mt-10">Login failed. Please try again.</h1>
-      <button class="btn btn-secondary rounded-sm mt-5" on:click={handleLoginRedirect}>Try Logging In Again</button>
-      <p class="mt-10 text-red-500">{loginError}</p>
-    {:else if $mqttError}
-      <h1 class="mt-10">MQTT connection failed.</h1>
-      <button class="btn btn-secondary rounded-sm mt-5" on:click={handleLoginRedirect}>Try Logging In Again</button>
-      <p class="mt-10 text-red-500">{$mqttError}</p>
-    {:else if userInfo}
-      <button class="flex items-center gap-3 mt-2" on:click={() => logout()}
-        >Hej {userInfo.name.split(" ")[0]}! Klicka här för att logga ut
-        <Fa class="mt-1" icon={faSignOut}/>
-      </button>
+      <button class="mt-5 rounded-sm btn btn-secondary" on:click={reload}>Try Logging In Again</button>
+      <p class="mt-10 text-red-500">{$loginError}</p>
+    {:else if $userInfo}
       <HeatPumpControl></HeatPumpControl>
-      <div class="h-96 w-8/12">
+      <div class="w-8/12 h-96">
         <Graph></Graph>
       </div>
     {/if}

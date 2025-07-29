@@ -1,83 +1,57 @@
 <script>
   import { onMount } from "svelte";
-  import Chart, { elements } from "chart.js/auto";
-  import "moment";
-  import "chartjs-adapter-moment";
-  import { isClientConnected, retainedTemperature, subscribe } from "./MqttManager";
+  import {
+    Chart,
+    LineController,
+    LineElement,
+    PointElement,
+    LinearScale,
+    TimeScale,
+    Title,
+    Tooltip,
+    Legend,
+    Filler,
+  } from "chart.js";
+  import "chartjs-adapter-moment"; // för att stödja moment-baserad x-axel
+  import moment from "moment";
 
-  let chart;
+  import { login, listenToTemperatureData } from "$lib/Firebase.js";
+
+  // 🔧 Registrera komponenter innan första chart används
+  Chart.register(
+    LineController,
+    LineElement,
+    PointElement,
+    LinearScale,
+    TimeScale,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+  );
+
   let canvas;
+  let chart;
 
-  // Funktion för att generera en array med fakade data
-  /*function generateData() {
-      const data = [{timestamp: new Date().getTime() - 3 * 24 * 60 * 60 * 1000, sensor1:{temperatur: 18},sensor2:{temperatur: 18}}];
-      const startDate = new Date(new Date().getTime() - 3 * 24 * 60 * 60 * 1000); 
+  function parseFirebaseData(dataObj) {
+    const entries = Object.entries(dataObj || {});
+    console.log(entries)
+    return entries.map(([ts, val]) => ({
+      x: new Date(Number(ts)*1000),
+      y: val.temp
+    })).sort((a, b) => a.x - b.x);
+  }
 
-      for (let i = 0; i < 140; i++) {
-      const timestamp = new Date(
-          startDate.getTime() + i * 0.5 * 60 * 60 * 1000
-      );
-      const temperature = ((0.5- Math.random()) * 0.3 + parseFloat(data[i].sensor1.temperatur)).toFixed(1); // Temperatur mellan 5.0 och 20.0
-      const temperature2 = ((0.5- Math.random()) * 0.3 + parseFloat(data[i].sensor2.temperatur)).toFixed(1); // Temperatur mellan 5.0 och 20.0
-      data.push({
-          timestamp: timestamp.getTime(), // Format: "YYYY-MM-DD HH:mm"
-          sensor1:{temperatur: temperature},
-          sensor2:{temperatur: temperature2},
-      });
-      }
-      for (let i = 50; i < 80; i++) {
-        
-        if(i%4) data[i].sensor2.temperatur = NaN;
-      }
-
-      return data;
-  }*/
-
-  const waitUntilConnected = (checkInterval = 100) => {
-    return new Promise((resolve) => {
-      let interval = setInterval(() => {
-        if (!isClientConnected()) return;
-        clearInterval(interval);
-        resolve();
-      }, checkInterval);
-    });
-  };
-
-  const waitUntilRetainedTemperature = (checkInterval = 100) => {
-    return new Promise((resolve) => {
-      let interval = setInterval(() => {
-        if (!$retainedTemperature) return;
-        clearInterval(interval);
-        resolve();
-      }, checkInterval);
-    });
-  };
-
-
-  onMount(async () => {
-    await waitUntilConnected();
-    await waitUntilRetainedTemperature();
-
-    let indata = JSON.parse($retainedTemperature);
-    indata = indata.sort((a, b) => a.timestamp - b.timestamp);
+  function updateChart(dataPoints) {
     const now = new Date();
+
     const data = {
-      datasets: [
-        {
-          label: "Sensor 1",
-          data: indata.map((x) => ({
-            x: x.timestamp, // x-axis is timestamp
-            y: parseFloat(x.sensor1), // y-axis is temperature
-          })),
-        },
-        {
-          label: "Sensor 2",
-          data: indata.map((x) => ({
-            x: x.timestamp, // x-axis is timestamp
-            y: parseFloat(x.sensor2), // y-axis is temperature
-          })),
-        },
-      ],
+      datasets: [{
+        label: "Temperatur",
+        data: dataPoints,
+        borderColor: "rgba(75,192,192,1)",
+        backgroundColor: "rgba(75,192,192,0.2)",
+      }],
     };
 
     const options = {
@@ -85,100 +59,71 @@
       maintainAspectRatio: false,
       plugins: {
         legend: { display: true },
-        title: { text: "Temperatur 72h", display: true },
+        title: { display: true, text: "Temperatur 72h" },
         tooltip: {
           callbacks: {
-            label: function (context) {
-              let label = context.dataset.label || "";
-              label = context.parsed.y + " °C";
-              return label;
-            },
-            title: function (context) {
-              return new Date(context[0].label).toLocaleString("se-sw");
-            },
-          },
-        },
+            label: ctx => `${ctx.parsed.y} °C`,
+            title: ctx => new Date(ctx[0].label).toLocaleString("sv-SE"),
+          }
+        }
       },
       interaction: {
-        mode: "nearest", // Finds the nearest point
-        intersect: false, // Allows detecting even if not directly over a point
-        axis: "x", // Restrict nearest point search to the x-axis
+        mode: "nearest",
+        intersect: false,
+        axis: "x",
       },
       elements: {
-        line: {
-          tension: 0.2,
-          borderWidth: 2
-        },
-        point: {
-          radius: 0.1,
-        },
+        line: { tension: 0.2, borderWidth: 2 },
+        point: { radius: 0.1 },
       },
       scales: {
-        y: {
-          suggestedMin: 5,
-          suggestedMax: 20,
-        },
+        y: { suggestedMin: 5, suggestedMax: 20 },
         x: {
-          display: true,
           type: "time",
           time: {
             unit: "day",
-            displayFormats: {
-              day: "DD MMM",
-            },
+            displayFormats: { day: "DD MMM" }
           },
-          min: new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString(),
-          max: new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
-        },
-      },
+          min: moment(now).subtract(72, "hours").toISOString(),
+          max: moment(now).add(3, "hours").toISOString(),
+        }
+      }
     };
-    chart = new Chart(canvas, {
-      type: "line",
-      data,
-      options,
-    });
 
-    subscribe("heatpump/temperature/concat", (indata) => {
-      indata = JSON.parse(indata);
-      indata = indata.sort((a, b) => a.timestamp - b.timestamp);
-
-      const data = {
-        datasets: [
-          {
-            label: "Sensor 1",
-            data: indata.map((x) => ({
-              x: x.timestamp, // x-axis is timestamp
-              y: parseFloat(x.sensor1), // y-axis is temperature
-            })),
-          },
-          {
-            label: "Sensor 2",
-            data: indata.map((x) => ({
-              x: x.timestamp, // x-axis is timestamp
-              y: parseFloat(x.sensor2), // y-axis is temperature
-            })),
-          },
-        ],
-      };
+    if (chart) {
       chart.data = data;
-
-      chart.scales.x.max = new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
-      chart.scales.x.min = new Date(
-        now.getTime() - 72 * 60 * 60 * 1000
-      ).toISOString();
+      chart.options = options;
       chart.update();
-    });
+    } else {
+      chart = new Chart(canvas, {
+        type: "line",
+        data,
+        options,
+      });
+    }
+  }
 
-    return () => {
-      chart.destroy();
-    };
+  onMount(async () => {
+    try {
+      listenToTemperatureData((rawData) => {
+        const parsed = parseFirebaseData(rawData);
+        console.log(parsed);
+        updateChart(parsed);
+      });
+    } catch (err) {
+      console.error("Error during init:", err.message);
+    }
   });
 </script>
 
-<canvas class="w-full" bind:this={canvas}></canvas>
-
 <style>
-  canvas {
-    margin: 0 auto;
+  .chart-container {
+    position: relative;
+    height: 400px;
+    width: 100%;
   }
 </style>
+
+<div class="chart-container">
+  <canvas bind:this={canvas}></canvas>
+</div>
